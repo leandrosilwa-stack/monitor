@@ -66,7 +66,11 @@ async function carregar(){ if(!sb) return;
     sb.from('chamado_pausas').select('*'),
     sb.from('ausencias').select('*')]);
   DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[]};
-  fillForms(); render(); renderDash(); renderAdmin(); }
+  fillForms(); render(); renderDash(); renderAdmin(); renderRouter(); }
+
+function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
+  const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');
+  el.innerHTML=arr.length?arr.map(c=>`<div class="flex justify-between items-center border-b py-1"><span>#${c.numero} — ${nomeAnalista(c.analista_id)} — ${fmtDT(c.data_abertura)}</span><button onclick="acao('${c.id}','devolver')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Devolver chamado</button></div>`).join(''):'<div class="text-slate-500">Nenhum aguardando devolução.</div>'; }
 
 // ---------- distribuição por média ----------
 function diasUteisMes(ano,mes,analistaId){
@@ -109,18 +113,27 @@ async function abrirChamado(){
   msg.innerText=error?'Erro: '+error.message:'Aberto! Vencimento '+fmtDT(venc);
   if(!error){ document.getElementById('n_numero').value=''; carregar(); } }
 
+async function fecharPausaUtil(chamado_id, agora){
+  const aberta=DB.pausas.filter(p=>p.chamado_id===chamado_id&&!p.fim).sort((a,b)=>new Date(b.inicio)-new Date(a.inicio))[0];
+  let dur=0; if(aberta){ dur=duracaoUtilSeg(aberta.inicio,agora);
+    await sb.from('chamado_pausas').update({fim:agora.toISOString(),duracao_util_seg:dur}).eq('id',aberta.id); }
+  return dur; }
+
 async function acao(id,tipo){
   const c=DB.chamados.find(x=>x.id===id); if(!c) return;
   const agora=new Date();
   if(tipo==='posse') await sb.from('chamados').update({status:'Em atendimento',data_posse:agora.toISOString(),analista_id:c.analista_id}).eq('id',id);
-  if(tipo==='cliente'){ await sb.from('chamados').update({status:'Aguardando Cliente'}).eq('id',id);
+  if(tipo==='cliente'){ await sb.from('chamados').update({status:'Aguardando Cliente',solicitar_devolucao:false}).eq('id',id);
     await sb.from('chamado_pausas').insert({chamado_id:id,inicio:agora.toISOString()}); }
-  if(tipo==='retornar'){ const aberta=DB.pausas.filter(p=>p.chamado_id===id&&!p.fim).sort((a,b)=>new Date(b.inicio)-new Date(a.inicio))[0];
-    let dur=0; if(aberta){ dur=duracaoUtilSeg(aberta.inicio,agora);
-      await sb.from('chamado_pausas').update({fim:agora.toISOString(),duracao_util_seg:dur}).eq('id',aberta.id); }
+  if(tipo==='retornar'){ const dur=await fecharPausaUtil(id,agora);
     const novoVenc=adicionarHorasUteis(new Date(c.data_vencimento),dur/3600);
-    await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString()}).eq('id',id); }
-  if(tipo==='resolver') await sb.from('chamados').update({status:'Resolvido',data_resolvido:agora.toISOString()}).eq('id',id);
+    await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString(),solicitar_devolucao:false}).eq('id',id); }
+  if(tipo==='solicitar'){ if(c.status!=='Aguardando Cliente') return alert('Só pode solicitar com status Aguardando Cliente.');
+    await sb.from('chamados').update({solicitar_devolucao:true}).eq('id',id); }
+  if(tipo==='devolver'){ const dur=await fecharPausaUtil(id,agora);
+    const novoVenc=adicionarHorasUteis(new Date(c.data_vencimento),dur/3600);
+    await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString(),solicitar_devolucao:false}).eq('id',id); }
+  if(tipo==='resolver') await sb.from('chamados').update({status:'Resolvido',data_resolvido:agora.toISOString(),solicitar_devolucao:false}).eq('id',id);
   if(tipo==='prio') await sb.from('chamados').update({priorizado:!c.priorizado}).eq('id',id);
   carregar(); }
 
@@ -135,10 +148,11 @@ function card(c){ return `<div class="bg-white p-2 rounded shadow text-sm ${c.pr
   <div>Abert: ${fmtDT(c.data_abertura)}</div>
   <div>Posse: ${fmtDT(c.data_posse)}</div>
   <div>Venc: ${fmtDT(c.data_vencimento)}</div>
+  ${c.solicitar_devolucao?'<div class="text-xs font-bold text-purple-700">↩ Solicitar devolução</div>':''}
   <div class="flex flex-wrap gap-1 mt-2">
     ${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">Tomar posse</button>`:''}
     ${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="bg-amber-500 text-white px-2 py-0.5 rounded text-xs">Ag. Cliente</button>`:''}
-    ${c.status==='Aguardando Cliente'?`<button onclick="acao('${c.id}','retornar')" class="bg-green-600 text-white px-2 py-0.5 rounded text-xs">Retornar</button>`:''}
+    ${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="bg-green-600 text-white px-2 py-0.5 rounded text-xs">Retornar</button><button onclick="acao('${c.id}','solicitar')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Solicitar devolução</button>`:''}
     ${c.status!=='Resolvido'?`<button onclick="acao('${c.id}','resolver')" class="bg-slate-800 text-white px-2 py-0.5 rounded text-xs">Resolver</button>`:''}
     <button onclick="acao('${c.id}','prio')" class="border px-2 py-0.5 rounded text-xs">${c.priorizado?'Despriorizar':'Priorizar'}</button>
   </div></div>`; }
@@ -150,8 +164,15 @@ function filtrados(){ const st=document.getElementById('filtroStatus').value; co
 function render(){ const list=filtrados();
   document.getElementById('kanban').classList.toggle('hidden',view!=='kanban');
   document.getElementById('lista').classList.toggle('hidden',view!=='lista');
-  if(view==='kanban'){ const cols=['Aguardando Atendimento','Em atendimento','Aguardando Cliente','Resolvido'];
-    document.getElementById('kanban').innerHTML=cols.map(s=>`<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${s} (${list.filter(c=>c.status===s).length})</h3><div class="space-y-2 kanban-col">${list.filter(c=>c.status===s).map(card).join('')}</div></div>`).join(''); }
+  if(view==='kanban'){
+    const defs=[
+      {t:'Aguardando Atendimento',f:c=>c.status==='Aguardando Atendimento'},
+      {t:'Em atendimento',f:c=>c.status==='Em atendimento'},
+      {t:'Aguardando Cliente',f:c=>c.status==='Aguardando Cliente'&&!c.solicitar_devolucao},
+      {t:'Solicitar devolução',f:c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente'},
+      {t:'Resolvido',f:c=>c.status==='Resolvido'}];
+    document.getElementById('kanban').innerHTML=defs.map(d=>{ const arr=list.filter(d.f);
+      return `<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${d.t} (${arr.length})</h3><div class="space-y-2 kanban-col">${arr.map(card).join('')}</div></div>`; }).join(''); }
   else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Posse</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> `:''}${c.status!=='Resolvido'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
 
 // ---------- dashboard / admin ----------
