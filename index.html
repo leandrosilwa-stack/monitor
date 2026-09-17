@@ -23,21 +23,11 @@
       <button data-tab="dash" class="tabbtn bg-slate-700 px-3 py-1 rounded">Dashboard</button>
       <button data-tab="analistas" class="tabbtn bg-slate-700 px-3 py-1 rounded">Analistas</button>
       <button data-tab="tabelas" class="tabbtn bg-slate-700 px-3 py-1 rounded">SLA / Feriados</button>
-      <button data-tab="cfg" class="tabbtn bg-slate-700 px-3 py-1 rounded">Conexão</button>
     </nav>
   </div>
 </header>
 
 <main class="max-w-7xl mx-auto p-4">
-  <!-- CONEXAO -->
-  <section id="tab-cfg" class="tab hidden bg-white p-4 rounded shadow">
-    <h2 class="font-bold mb-2">Conexão Supabase (100% online)</h2>
-    <input id="sb_url" placeholder="https://xyz.supabase.co" class="border p-2 rounded w-full mb-2">
-    <input id="sb_anon" placeholder="anon key" class="border p-2 rounded w-full mb-2">
-    <button onclick="salvarCfg()" class="bg-blue-600 text-white px-4 py-2 rounded">Salvar e Conectar</button>
-    <p id="cfgStatus" class="text-sm mt-2"></p>
-  </section>
-
   <!-- BOARD -->
   <section id="tab-board" class="tab">
     <div class="flex flex-wrap items-center gap-2 mb-3">

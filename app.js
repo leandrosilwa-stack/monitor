@@ -1,5 +1,5 @@
 let sb=null, DB={analistas:[],slas:[],feriados:[],chamados:[],pausas:[],ausencias:[]};
-let view=localStorage.getItem('view')||'kanban';
+let view='kanban';
 
 // ---------- utils data dd/mm/yy hh:mm:ss ----------
 function fmtDT(d){ if(!d) return '-'; const x=new Date(d);
@@ -45,17 +45,14 @@ function duracaoUtilSeg(ini,fim){
     cur=proximoUtil8h(cur); if(cur>b) break; }
   return Math.round(tot); }
 
-// ---------- supabase ----------
-function salvarCfg(){ localStorage.setItem('sb_url',document.getElementById('sb_url').value.trim());
-  localStorage.setItem('sb_anon',document.getElementById('sb_anon').value.trim()); location.reload(); }
-function init(){ document.getElementById('sb_url').value=window.SUPABASE_URL||'';
-  document.getElementById('sb_anon').value=window.SUPABASE_ANON||'';
+// ---------- supabase (conexão fixa, sem localStorage) ----------
+function init(){
   document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
     document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden'); });
   document.getElementById('n_data').value=nowBR(); setView(view);
-  if(!window.SUPABASE_URL){ document.getElementById('cfgStatus').innerText='Informe URL e anon key.'; return; }
+  if(!window.SUPABASE_URL||window.SUPABASE_URL.includes('COLE_AQUI')){ document.getElementById('tab-board').innerHTML='<div class="bg-white p-4 rounded shadow">Configure <b>config.js</b> com URL e anon key do Supabase e suba no GitHub.</div>'; return; }
   sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON); carregar(); }
-function setView(v){ view=v; localStorage.setItem('view',v);
+function setView(v){ view=v;
   document.getElementById('btnKanban').className='px-3 py-1 rounded text-sm '+(v==='kanban'?'bg-slate-900 text-white':'');
   document.getElementById('btnLista').className='px-3 py-1 rounded text-sm '+(v==='lista'?'bg-slate-900 text-white':'');
   render(); }
@@ -69,7 +66,6 @@ async function carregar(){ if(!sb) return;
     sb.from('chamado_pausas').select('*'),
     sb.from('ausencias').select('*')]);
   DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[]};
-  document.getElementById('cfgStatus').innerText=`Conectado: ${DB.chamados.length} chamados.`;
   fillForms(); render(); renderDash(); renderAdmin(); }
 
 // ---------- distribuição por média ----------
