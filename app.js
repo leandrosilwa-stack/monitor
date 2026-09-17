@@ -84,8 +84,10 @@ function diasUteisMes(ano,mes,analistaId){
       return only>=new Date(i.getFullYear(),i.getMonth(),i.getDate())&&only<=new Date(f.getFullYear(),f.getMonth(),f.getDate());});
     if(!emAus) tot++; }
   return tot||1; }
+function isTesteNome(n){ return (n||'').trim().toUpperCase()==='TESTE'; }
+function isTesteId(id){ const a=DB.analistas.find(x=>x.id===id); return a?isTesteNome(a.nome):false; }
 function rankingAnalistas(){
-  const now=new Date(); const ativos=DB.analistas.filter(a=>a.status==='ativo');
+  const now=new Date(); const ativos=DB.analistas.filter(a=>a.status==='ativo'&&!isTesteNome(a.nome));
   const map=ativos.map(a=>{
     const rec=DB.chamados.filter(c=>c.analista_id===a.id&&new Date(c.data_abertura).getMonth()===now.getMonth()&&new Date(c.data_abertura).getFullYear()===now.getFullYear()).length;
     const dias=diasUteisMes(now.getFullYear(),now.getMonth(),a.id);
@@ -95,7 +97,8 @@ function rankingAnalistas(){
 function fillForms(){
   document.getElementById('n_sla').innerHTML=DB.slas.map(s=>`<option value="${s.id}">${s.descricao} — ${s.prazo_horas}h</option>`).join('');
   const rank=rankingAnalistas();
-  document.getElementById('n_analista').innerHTML=`<option value="">Automático (topo: ${rank[0]?rank[0].nome:'-'})</option>`+rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('');
+  const teste=DB.analistas.find(a=>isTesteNome(a.nome)&&a.status==='ativo');
+  document.getElementById('n_analista').innerHTML=`<option value="">Automático (topo: ${rank[0]?rank[0].nome:'-'})</option>`+rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')+(teste?`<option value="${teste.id}">TESTE — só para apresentação</option>`:'');
   document.getElementById('au_analista').innerHTML=DB.analistas.map(a=>`<option value="${a.id}">${a.nome}</option>`).join(''); }
 
 // ---------- CRUD chamados ----------
@@ -107,6 +110,7 @@ async function abrirChamado(){
   const msg=document.getElementById('n_msg');
   if(!numero||!sla_id||!dt){ msg.innerText='Preencha nº, SLA e data válida.'; return; }
   if(!analista_id){ const r=rankingAnalistas(); analista_id=r[0]?r[0].id:null; }
+  if(analista_id&&isTesteId(analista_id)){ if(!confirm('O chamado será cadastrado para o analista TESTE. Confirma? (só para apresentação)')) return; }
   const sla=DB.slas.find(s=>s.id===sla_id);
   const venc=adicionarHorasUteis(dt,sla.prazo_horas);
   const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Atendimento',data_abertura:dt.toISOString(),data_vencimento:venc.toISOString(),priorizado:false});
@@ -175,15 +179,24 @@ function render(){ const list=filtrados();
       return `<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${d.t} (${arr.length})</h3><div class="space-y-2 kanban-col">${arr.map(card).join('')}</div></div>`; }).join(''); }
   else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Posse</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> `:''}${c.status!=='Resolvido'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
 
-// ---------- dashboard / admin ----------
-function renderDash(){ const n=new Date(); const mes=DB.chamados.filter(c=>new Date(c.data_abertura).getMonth()===n.getMonth());
-  const k=[['Abertos',DB.chamados.filter(c=>c.status!=='Resolvido').length],['Aguard.Atend.',DB.chamados.filter(c=>c.status==='Aguardando Atendimento').length],['Vencidos',DB.chamados.filter(vencido).length],['Resolvidos mês',mes.filter(c=>c.status==='Resolvido').length],['No prazo',DB.chamados.filter(c=>c.status!=='Resolvido'&&!vencido(c)).length]];
+// ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
+function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }
+function renderDash(){ const n=new Date(); const eq=chamadosEquipe(); const mes=eq.filter(c=>new Date(c.data_abertura).getMonth()===n.getMonth());
+  const k=[['Abertos',eq.filter(c=>c.status!=='Resolvido').length],['Aguard.Atend.',eq.filter(c=>c.status==='Aguardando Atendimento').length],['Vencidos',eq.filter(vencido).length],['Resolvidos mês',mes.filter(c=>c.status==='Resolvido').length],['No prazo',eq.filter(c=>c.status!=='Resolvido'&&!vencido(c)).length]];
   document.getElementById('kpis').innerHTML=k.map(x=>`<div class="bg-white p-3 rounded shadow text-center"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs">${x[0]}</div></div>`).join('');
   document.getElementById('mediaTable').innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Recebidos</th><th>Dias úteis trab.</th><th>Média/dia</th></tr>${rankingAnalistas().map(a=>`<tr class="border-t"><td class="p-1">${a.nome}</td><td>${a.recebidos}</td><td>${a.dias}</td><td>${a.media.toFixed(2)}</td></tr>`).join('')}</table>`; }
 
 async function addAnalista(){ const nome=document.getElementById('a_nome').value.trim(); const ini=+document.getElementById('a_inicio').value;
   if(!nome) return; await sb.from('analistas').insert({nome,status:'ativo',inicio_expediente:ini}); document.getElementById('a_nome').value=''; carregar(); }
 async function toggleAnalista(id,st){ await sb.from('analistas').update({status:st==='ativo'?'inativo':'ativo'}).eq('id',id); carregar(); }
+async function alterarInicio(id,atual){ const novo=atual===8?9:8; await sb.from('analistas').update({inicio_expediente:novo}).eq('id',id); carregar(); }
+async function excluirAusencia(id){ if(!confirm('Excluir este cadastro de ausência?')) return; await sb.from('ausencias').delete().eq('id',id); carregar(); }
+async function editarAusencia(id){ const x=DB.ausencias.find(a=>a.id===id); if(!x) return;
+  const ni=prompt('Início dd/mm/yy:',fmtAus(x.data_inicio)); if(ni===null) return;
+  const nf=prompt('Fim dd/mm/yy:',fmtAus(x.data_fim)); if(nf===null) return;
+  const i=parseAusBR(ni.trim()), f=parseAusBR(nf.trim()); if(!i||!f||f<i) return alert('Datas inválidas.');
+  await sb.from('ausencias').update({data_inicio:i.toISOString().slice(0,10),data_fim:f.toISOString().slice(0,10)}).eq('id',id); carregar(); }
+function fmtAus(iso){ const d=new Date(iso+'T12:00:00'); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)}`; }
 async function addAusencia(){ const analista_id=document.getElementById('au_analista').value;
   const i=parseAusBR(document.getElementById('au_ini').value); const f=parseAusBR(document.getElementById('au_fim').value);
   if(!analista_id||!i||!f) return alert('Datas dd/mm/yy');
@@ -193,8 +206,9 @@ async function addSla(){ const descricao=document.getElementById('s_desc').value
 async function addFeriado(){ const dia=+document.getElementById('f_dia').value,mes=+document.getElementById('f_mes').value,descricao=document.getElementById('f_desc').value.trim();
   if(!dia||!mes||!descricao) return; await sb.from('feriados').upsert({dia,mes,descricao},{onConflict:'dia,mes'}); carregar(); }
 function renderAdmin(){
-  document.getElementById('analistasList').innerHTML=DB.analistas.map(a=>`<div class="flex justify-between border-b py-1"><span>${a.nome} — ${a.status} — início ${a.inicio_expediente}h</span><button onclick="toggleAnalista('${a.id}','${a.status}')" class="underline text-blue-700">${a.status==='ativo'?'Inativar':'Ativar'}</button></div>`).join('');
-  document.getElementById('ausList').innerHTML=DB.ausencias.map(x=>`<div class="border-b py-1">${nomeAnalista(x.analista_id)}: ${x.data_inicio} → ${x.data_fim} ${x.motivo||''}</div>`).join('');
+  const orden=[...DB.analistas].sort((a,b)=> (isTesteNome(a.nome)-isTesteNome(b.nome)) || a.nome.localeCompare(b.nome));
+  document.getElementById('analistasList').innerHTML=orden.map(a=>`<div class="flex flex-wrap justify-between gap-2 border-b py-1"><span>${a.nome} — ${a.status} — início ${a.inicio_expediente}h${isTesteNome(a.nome)?' (TESTE: fora dos indicadores)':''}</span><span class="flex gap-2"><button onclick="alterarInicio('${a.id}',${a.inicio_expediente})" class="underline text-green-700">Alterar 8h/9h</button><button onclick="toggleAnalista('${a.id}','${a.status}')" class="underline text-blue-700">${a.status==='ativo'?'Inativar':'Ativar'}</button></span></div>`).join('');
+  document.getElementById('ausList').innerHTML=DB.ausencias.map(x=>`<div class="flex flex-wrap justify-between gap-2 border-b py-1"><span>${nomeAnalista(x.analista_id)}: ${x.data_inicio} → ${x.data_fim} ${x.motivo||''}</span><span class="flex gap-2"><button onclick="editarAusencia('${x.id}')" class="underline text-green-700">Editar</button><button onclick="excluirAusencia('${x.id}')" class="underline text-red-700">Excluir</button></span></div>`).join('');
   document.getElementById('slaList').innerHTML=DB.slas.map(s=>`<div class="border-b py-1">${s.descricao} — ${s.prazo_horas}h</div>`).join('');
   document.getElementById('ferList').innerHTML=DB.feriados.map(f=>`<div class="border-b py-1">${String(f.dia).padStart(2,'0')}/${String(f.mes).padStart(2,'0')} — ${f.descricao}</div>`).join(''); }
 
