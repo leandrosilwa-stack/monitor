@@ -19,7 +19,7 @@
     <h1 class="font-bold text-lg">Monitor de Chamados</h1>
     <nav class="flex gap-2 text-sm">
       <button data-tab="board" class="tabbtn bg-slate-700 px-3 py-1 rounded">Chamados</button>
-      <button data-tab="novo" class="tabbtn bg-slate-700 px-3 py-1 rounded">Cadastro</button>
+      <button data-tab="novo" class="tabbtn bg-slate-700 px-3 py-1 rounded">Roteador</button>
       <button data-tab="dash" class="tabbtn bg-slate-700 px-3 py-1 rounded">Dashboard</button>
       <button data-tab="analistas" class="tabbtn bg-slate-700 px-3 py-1 rounded">Analistas</button>
       <button data-tab="tabelas" class="tabbtn bg-slate-700 px-3 py-1 rounded">SLA / Feriados</button>
@@ -43,7 +43,9 @@
         <option>Resolvido</option>
       </select>
       <input id="busca" oninput="render()" placeholder="Buscar nº..." class="border p-1 rounded text-sm">
+      <select id="filtroAnalista" onchange="render()" class="border p-1 rounded text-sm"><option value="">Todos analistas</option></select>
       <button onclick="carregar()" class="bg-slate-800 text-white px-3 py-1 rounded text-sm">Atualizar</button>
+      <span id="countdown" class="text-xs text-slate-500"></span>
     </div>
     <div id="kanban" class="grid md:grid-cols-5 gap-3"></div>
     <div id="lista" class="hidden bg-white rounded shadow overflow-auto"></div>
@@ -53,22 +55,45 @@
   <section id="tab-novo" class="tab hidden max-w-3xl">
    <div class="bg-white p-4 rounded shadow mb-4">
     <h2 class="font-bold mb-3">Abrir chamado (sempre Aguardando Atendimento)</h2>
-    <label class="text-sm">Nº ticket *</label>
-    <input id="n_numero" class="border p-2 rounded w-full mb-2" placeholder="Ex: 12345">
+    <label class="text-sm">Nº ticket * (único)</label>
+    <input id="n_numero" oninput="verificarNumero()" class="border p-2 rounded w-full mb-1" placeholder="Ex: 12345">
+    <p id="n_aviso" class="text-xs text-red-600 mb-2"></p>
     <label class="text-sm">Descrição SLA *</label>
     <select id="n_sla" class="border p-2 rounded w-full mb-2"></select>
     <label class="text-sm">Data abertura * (dd/mm/yy hh:mm:ss)</label>
     <input id="n_data" class="border p-2 rounded w-full mb-2">
     <label class="text-sm">Analista (vazio = topo da lista)</label>
     <select id="n_analista" class="border p-2 rounded w-full mb-2"></select>
-    <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Inativos ocultos.</p>
-    <button onclick="abrirChamado()" class="bg-green-600 text-white px-4 py-2 rounded">Abrir</button>
+    <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
+    <button id="btnAbrir" onclick="abrirChamado()" class="bg-green-600 text-white px-4 py-2 rounded">Abrir</button>
+    <button onclick="abrirModal('todos')" class="bg-slate-800 text-white px-4 py-2 rounded ml-2">Redistribuir</button>
+    <button onclick="abrirModal('ausentes')" class="bg-amber-600 text-white px-4 py-2 rounded ml-2">Redistribuir Ausentes</button>
     <p id="n_msg" class="text-sm mt-2"></p>
    </div>
-   <div class="bg-white p-4 rounded shadow">
+   <div class="bg-white p-4 rounded shadow mb-4">
+    <div class="flex items-center gap-2 mb-2">
+      <h3 class="font-bold">Ações do roteador</h3>
+      <button onclick="carregar()" class="bg-slate-800 text-white px-2 py-0.5 rounded text-xs">Atualizar</button>
+      <span id="routerCountdown" class="text-xs text-slate-500"></span>
+    </div>
     <h3 class="font-bold mb-2">Ações do roteador</h3>
     <p class="text-xs text-slate-500 mb-2">Chamados em Aguardando Cliente com Solicitar devolução. Devolver volta para Em atendimento.</p>
     <div id="routerList" class="text-sm"></div>
+   </div>
+   <div class="bg-white p-4 rounded shadow">
+    <h3 class="font-bold mb-2">Chamados não resolvidos</h3>
+    <div id="abertosList" class="text-sm overflow-auto"></div>
+   </div>
+   <div id="modalRedist" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+    <div class="bg-white rounded shadow max-w-3xl w-full m-4 p-4 max-h-[85vh] overflow-auto">
+      <h3 id="modalTitle" class="font-bold mb-2">Redistribuir</h3>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <select id="redistDestino" class="border p-2 rounded flex-1"></select>
+        <button onclick="confirmarRedist()" class="bg-green-600 text-white px-4 py-2 rounded">Aplicar</button>
+        <button onclick="fecharModal()" class="border px-4 py-2 rounded">Fechar</button>
+      </div>
+      <div id="redistList" class="text-sm"></div>
+    </div>
    </div>
   </section>
 
