@@ -245,7 +245,11 @@ function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id
 function renderDash(){ const n=new Date(); const eq=chamadosEquipe(); const mes=eq.filter(c=>new Date(c.data_abertura).getMonth()===n.getMonth());
   const k=[['Abertos',eq.filter(c=>c.status!=='Resolvido').length],['Aguard.Atend.',eq.filter(c=>c.status==='Aguardando Atendimento').length],['Vencidos',eq.filter(vencido).length],['Resolvidos mês',mes.filter(c=>c.status==='Resolvido').length],['No prazo',eq.filter(c=>c.status!=='Resolvido'&&!vencido(c)).length]];
   document.getElementById('kpis').innerHTML=k.map(x=>`<div class="bg-white p-3 rounded shadow text-center"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs">${x[0]}</div></div>`).join('');
-  document.getElementById('mediaTable').innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Recebidos</th><th>Dias úteis trab.</th><th>Média/dia</th></tr>${rankingAnalistas().map(a=>`<tr class="border-t"><td class="p-1">${a.nome}</td><td>${a.recebidos}</td><td>${a.dias}</td><td>${a.media.toFixed(2)}</td></tr>`).join('')}</table>`; }
+  document.getElementById('mediaTable').innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Recebidos</th><th>Dias úteis trab.</th><th>Média/dia</th></tr>${[...DB.analistas].filter(a=>!isTesteNome(a.nome)).sort((a,b)=>a.nome.localeCompare(b.nome)).map(a=>{
+    const rec=DB.chamados.filter(c=>c.analista_id===a.id&&new Date(c.data_abertura).getMonth()===n.getMonth()&&new Date(c.data_abertura).getFullYear()===n.getFullYear()).length;
+    const dias=diasUteisMes(n.getFullYear(),n.getMonth(),a.id);
+    const tag=a.status!=='ativo'?' (inativo)':(ausenteHoje(a.id)?' (ausente)':'');
+    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td>${rec}</td><td>${dias}</td><td>${(rec/dias).toFixed(2)}</td></tr>`; }).join('')}</table>`; }
 
 async function addAnalista(){ const nome=document.getElementById('a_nome').value.trim(); const ini=+document.getElementById('a_inicio').value;
   if(!nome) return; await sb.from('analistas').insert({nome,status:'ativo',inicio_expediente:ini}); document.getElementById('a_nome').value=''; carregar(); }
