@@ -77,12 +77,22 @@ async function carregar(){ if(!sb) return;
     sb.from('chamado_pausas').select('*'),
     sb.from('ausencias').select('*')]);
   DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[]};
-  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); verificarNumero(); }
+  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); verificarNumero(); }
 
 function fillFiltroAnalista(){ const el=document.getElementById('filtroAnalista'); if(!el) return;
   const cur=el.value; const orden=[...DB.analistas].sort((a,b)=>a.nome.localeCompare(b.nome));
   el.innerHTML='<option value="">Todos analistas</option>'+orden.map(a=>`<option value="${a.id}">${a.nome}</option>`).join('');
   el.value=cur||''; }
+
+function renderResumo(){ const el=document.getElementById('analistasResumo'); if(!el) return;
+  const hoje=new Date(); const soDia=d=>d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth()&&d.getDate()===hoje.getDate();
+  const orden=[...DB.analistas].sort((a,b)=>(isTesteNome(a.nome)-isTesteNome(b.nome))||a.nome.localeCompare(b.nome));
+  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Hoje</th><th>Mês</th></tr>${orden.map(a=>{
+    const rec=DB.chamados.filter(c=>c.analista_id===a.id);
+    const h=rec.filter(c=>soDia(new Date(c.data_abertura))).length;
+    const m=rec.filter(c=>{ const d=new Date(c.data_abertura); return d.getMonth()===hoje.getMonth()&&d.getFullYear()===hoje.getFullYear(); }).length;
+    const tag=a.status!=='ativo'?' (inativo)':(ausenteHoje(a.id)?' (ausente)':'');
+    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td>${h}</td><td>${m}</td></tr>`; }).join('')}</table>`; }
 
 function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
   const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');

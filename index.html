@@ -53,7 +53,8 @@
 
   <!-- NOVO -->
   <section id="tab-novo" class="tab hidden max-w-3xl">
-   <div class="bg-white p-4 rounded shadow mb-4">
+   <div class="bg-white p-4 rounded shadow mb-4 grid md:grid-cols-2 gap-4">
+    <div>
     <h2 class="font-bold mb-3">Abrir chamado (sempre Aguardando Atendimento)</h2>
     <label class="text-sm">Nº ticket * (único)</label>
     <input id="n_numero" oninput="verificarNumero()" class="border p-2 rounded w-full mb-1" placeholder="Ex: 12345">
@@ -67,6 +68,11 @@
     <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
     <button id="btnAbrir" onclick="abrirChamado()" class="bg-green-600 text-white px-4 py-2 rounded">Abrir</button>
     <p id="n_msg" class="text-sm mt-2"></p>
+    </div>
+    <div>
+     <h3 class="font-bold mb-2">Analistas — recebidos</h3>
+     <div id="analistasResumo" class="text-sm overflow-auto"></div>
+    </div>
    </div>
    <div class="bg-white p-4 rounded shadow mb-4">
     <div class="flex items-center gap-2 mb-2">
