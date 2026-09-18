@@ -188,6 +188,19 @@ async function acao(id,tipo){
 function nomeAnalista(id){ return DB.analistas.find(a=>a.id===id)?.nome||'-'; }
 function descSla(id){ const s=DB.slas.find(x=>x.id===id); return s?`${s.descricao} (${s.prazo_horas}h)`:'-'; }
 function vencido(c){ return c.status!=='Resolvido'&&new Date(c.data_vencimento)<new Date(); }
+// ---------- aging (% do prazo consumido, só tempo útil) ----------
+function agingInfo(c){ const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla||!sla.prazo_horas) return null;
+  const total=sla.prazo_horas*3600; if(total<=0) return null;
+  const fim=c.status==='Resolvido'&&c.data_resolvido?new Date(c.data_resolvido):new Date();
+  let cons=duracaoUtilSeg(c.data_abertura,fim);
+  for(const p of DB.pausas.filter(x=>x.chamado_id===c.id)){
+    cons-=p.fim?(p.duracao_util_seg||duracaoUtilSeg(p.inicio,p.fim)):duracaoUtilSeg(p.inicio,fim); }
+  cons=Math.max(0,cons);
+  return {pct:cons/total*100}; }
+function agingBar(c){ const a=agingInfo(c); if(!a) return '';
+  const p=Math.round(a.pct), w=Math.min(100,p);
+  const cor=p<50?'#16a34a':(p<100?'#ca8a04':'#dc2626');
+  return `<div class="mt-1"><div class="flex justify-between text-xs"><span>Aging</span><span style="color:${cor};font-weight:bold">${p}%</span></div><div class="h-1.5 bg-slate-200 rounded"><div class="h-1.5 rounded" style="width:${w}%;background:${cor}"></div></div></div>`; }
 function card(c){
   const emDev=c.solicitar_devolucao&&c.status==='Aguardando Cliente';
   let btns='';
@@ -203,6 +216,7 @@ function card(c){
   <div>Posse: ${fmtDT(c.data_posse)}</div>
   <div>Venc: ${fmtDT(c.data_vencimento)}</div>
   ${c.status==='Resolvido'?`<div>Resolv: ${fmtDT(c.data_resolvido)}</div>`:''}
+  ${agingBar(c)}
   ${emDev?'<div class="text-xs font-bold text-purple-700">↩ Aguardando devolução</div>':''}
   ${btns?`<div class="flex flex-wrap gap-1 mt-2">${btns}</div>`:''}</div>`; }
 
