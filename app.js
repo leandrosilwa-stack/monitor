@@ -85,12 +85,12 @@ function fillFiltroAnalista(){ const el=document.getElementById('filtroAnalista'
   el.value=cur||''; }
 
 function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
-  const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente'&&!isTesteId(c.analista_id));
+  const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');
   el.innerHTML=arr.length?arr.map(c=>`<div class="flex justify-between items-center border-b py-1"><span>#${c.numero} — ${nomeAnalista(c.analista_id)} — ${fmtDT(c.data_abertura)}</span><button onclick="acao('${c.id}','devolver')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Devolver chamado</button></div>`).join(''):'<div class="text-slate-500">Nenhum aguardando devolução.</div>'; }
 
 function renderAbertos(){ const el=document.getElementById('abertosList'); if(!el) return;
-  const arr=DB.chamados.filter(c=>c.status!=='Resolvido'&&!isTesteId(c.analista_id)).sort((a,b)=>new Date(a.data_vencimento)-new Date(b.data_vencimento));
-  el.innerHTML=arr.length?`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Nº</th><th>Analista</th><th>Status</th><th>Vencimento</th><th></th></tr>${arr.map(c=>`<tr class="border-t ${c.priorizado?'prio':''}"><td class="p-1 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_vencimento)}</td><td><button onclick="acao('${c.id}','prio')" class="underline ${c.priorizado?'text-green-700':'text-red-700'} text-xs">${c.priorizado?'Despriorizar':'Priorizar'}</button></td></tr>`).join('')}</table>`:'<div class="text-slate-500">Nenhum chamado aberto.</div>'; }
+  const arr=DB.chamados.filter(c=>c.status!=='Resolvido').sort((a,b)=>new Date(a.data_vencimento)-new Date(b.data_vencimento));
+  el.innerHTML=arr.length?`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Nº</th><th>Analista</th><th>Status</th><th>Vencimento</th><th></th></tr>${arr.map(c=>`<tr class="border-t ${c.priorizado?'prio':''}"><td class="p-1 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_vencimento)}</td><td class="whitespace-nowrap"><button onclick="acao('${c.id}','prio')" class="underline ${c.priorizado?'text-green-700':'text-red-700'} text-xs mr-2">${c.priorizado?'Despriorizar':'Priorizar'}</button><button onclick="abrirRedistUm('${c.id}')" class="underline text-blue-700 text-xs">Redistribuir</button></td></tr>`).join('')}</table>`:'<div class="text-slate-500">Nenhum chamado aberto.</div>'; }
 
 // ---------- distribuição por média ----------
 function diasUteisMes(ano,mes,analistaId){
@@ -214,22 +214,19 @@ function render(){ const list=filtrados();
       return `<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${d.t} (${arr.length})</h3><div class="space-y-2 kanban-col">${arr.map(card).join('')}</div></div>`; }).join(''); }
   else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Iniciar</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> <button onclick="acao('${c.id}','solicitar')" class="text-purple-700 underline text-xs">Solicitar</button> `:''}${c.status!=='Resolvido'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
 
-// ---------- redistribuir ----------
-function destinosDisponiveis(){ return DB.analistas.filter(analistaDisponivel).sort((a,b)=>a.nome.localeCompare(b.nome)); }
-function listaRedist(){ const abertos=DB.chamados.filter(c=>c.status!=='Resolvido'&&!isTesteId(c.analista_id));
-  if(redistModo==='ausentes') return abertos.filter(c=>{ const an=DB.analistas.find(a=>a.id===c.analista_id); return !an||!analistaDisponivel(an); });
-  return abertos; }
-function abrirModal(modo){ redistModo=modo;
-  document.getElementById('modalTitle').innerText=modo==='ausentes'?'Redistribuir Ausentes (abertos de ausentes/inativos)':'Redistribuir (todos abertos)';
-  document.getElementById('redistDestino').innerHTML=destinosDisponiveis().map(a=>`<option value="${a.id}">${a.nome}</option>`).join('');
-  const arr=listaRedist();
-  document.getElementById('redistList').innerHTML=arr.length?arr.map(c=>`<label class="flex gap-2 border-b py-1"><input type="checkbox" class="redistChk" value="${c.id}"><span>#${c.numero} — ${nomeAnalista(c.analista_id)} — ${c.status} — venc ${fmtDT(c.data_vencimento)}</span></label>`).join(''):'Nenhum chamado.';
+// ---------- redistribuir (por chamado, ordem de roteamento) ----------
+let redistUmId=null;
+function abrirRedistUm(id){ const c=DB.chamados.find(x=>x.id===id); if(!c) return;
+  redistUmId=id;
+  document.getElementById('modalTitle').innerText='Redistribuir #'+c.numero+' ('+nomeAnalista(c.analista_id)+' → ?)';
+  const rank=rankingAnalistas();
+  document.getElementById('redistDestino').innerHTML=rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')||'<option value="">Sem analista disponível</option>';
+  document.getElementById('redistList').innerHTML=`<div class="border-b py-1">#${c.numero} — ${c.status} — venc ${fmtDT(c.data_vencimento)}</div><p class="text-xs text-slate-500 mt-2">Ordem de roteamento: menor média primeiro, empate alfabética. Só ativos e presentes.</p>`;
   document.getElementById('modalRedist').classList.remove('hidden'); }
-function fecharModal(){ document.getElementById('modalRedist').classList.add('hidden'); }
+function fecharModal(){ document.getElementById('modalRedist').classList.add('hidden'); redistUmId=null; }
 async function confirmarRedist(){ const dest=document.getElementById('redistDestino').value; if(!dest) return alert('Sem analista disponível.');
-  const ids=[...document.querySelectorAll('.redistChk:checked')].map(x=>x.value);
-  if(!ids.length) return alert('Selecione ao menos 1 chamado.');
-  for(const id of ids) await sb.from('chamados').update({analista_id:dest}).eq('id',id);
+  if(!redistUmId) return alert('Nenhum chamado selecionado.');
+  await sb.from('chamados').update({analista_id:dest}).eq('id',redistUmId);
   fecharModal(); carregar(); }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
