@@ -200,7 +200,7 @@ function agingInfo(c){ const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla||!sla
 function agingBar(c){ const a=agingInfo(c); if(!a) return '';
   const p=Math.round(a.pct), w=Math.min(100,p);
   const cor=p<50?'#16a34a':(p<100?'#ca8a04':'#dc2626');
-  return `<div class="mt-1"><div class="flex justify-between text-xs"><span>Aging</span><span style="color:${cor};font-weight:bold">${p}%</span></div><div class="h-1.5 bg-slate-200 rounded"><div class="h-1.5 rounded" style="width:${w}%;background:${cor}"></div></div></div>`; }
+  return `<div class="mt-1"><div class="flex justify-between text-xs"><span>AGING</span><span style="color:${cor};font-weight:bold">${p}%</span></div><div class="h-1.5 bg-slate-200 rounded"><div class="h-1.5 rounded" style="width:${w}%;background:${cor}"></div></div></div>`; }
 function card(c){
   const emDev=c.solicitar_devolucao&&c.status==='Aguardando Cliente';
   let btns='';
@@ -253,6 +253,44 @@ async function confirmarRedist(){ const dest=document.getElementById('redistDest
   if(!redistUmId) return alert('Nenhum chamado selecionado.');
   await sb.from('chamados').update({analista_id:dest}).eq('id',redistUmId);
   fecharModal(); carregar(); }
+
+// ---------- importar resolvidos (CSV) ----------
+function abrirModalImport(){ document.getElementById('importResult').innerHTML=''; document.getElementById('modalImport').classList.remove('hidden'); }
+function fecharModalImport(){ document.getElementById('modalImport').classList.add('hidden'); }
+function normTxt(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function parseCSVLine(line){ const out=[]; let cur='',q=false;
+  for(let i=0;i<line.length;i++){ const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; }
+    else if(ch==='"') q=true; else if(ch===','){ out.push(cur); cur=''; } else cur+=ch; }
+  out.push(cur); return out.map(s=>s.trim()); }
+async function processarImport(){ const inp=document.getElementById('importFile'); const res=document.getElementById('importResult');
+  if(!inp.files.length) return alert('Escolha o arquivo CSV.');
+  const text=(await inp.files[0].text()).replace(/^\uFEFF/,'');
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
+  if(lines.length<2){ res.innerText='Arquivo vazio.'; return; }
+  const slaMap={}, anaMap={};
+  DB.slas.forEach(s=>slaMap[normTxt(s.descricao)]=s.id);
+  DB.analistas.forEach(a=>anaMap[normTxt(a.nome)]=a.id);
+  const vistos=new Set(DB.chamados.map(c=>c.numero.toLowerCase()));
+  const ok=[], rej=[];
+  for(let i=1;i<lines.length;i++){ const col=parseCSVLine(lines[i]);
+    if(col.length<7){ rej.push(`linha ${i+1}: colunas incompletas`); continue; }
+    const [id,ab,po,en,ve,desc,prop]=col;
+    if(!id){ rej.push(`linha ${i+1}: sem ID`); continue; }
+    if(vistos.has(id.toLowerCase())){ rej.push(`${id}: ID duplicado`); continue; }
+    const sla_id=slaMap[normTxt(desc)];
+    if(!sla_id){ rej.push(`${id}: SLA não cadastrado (${desc})`); continue; }
+    const analista_id=anaMap[normTxt(prop)];
+    if(!analista_id){ rej.push(`${id}: analista não cadastrado (${prop})`); continue; }
+    const dAb=parseBR(ab), dPo=parseBR(po), dEn=parseBR(en), dVe=parseBR(ve);
+    if(!dAb||!dPo||!dEn||!dVe){ rej.push(`${id}: data inválida`); continue; }
+    vistos.add(id.toLowerCase());
+    ok.push({numero:id,sla_id,analista_id,status:'Resolvido',data_abertura:dAb.toISOString(),data_posse:dPo.toISOString(),data_resolvido:dEn.toISOString(),data_vencimento:dVe.toISOString(),priorizado:false,solicitar_devolucao:false}); }
+  let ins=0;
+  for(let k=0;k<ok.length;k+=100){ const {error}=await sb.from('chamados').insert(ok.slice(k,k+100));
+    if(error){ res.innerHTML=`Erro ao inserir: ${error.message}`; return; } ins+=Math.min(100,ok.length-k); }
+  res.innerHTML=`<div class="font-bold text-green-700 mb-2">${ins} importados, ${rej.length} rejeitados.</div>`+(rej.length?`<div class="max-h-60 overflow-auto">${rej.map(r=>`<div class="border-b py-0.5">${r}</div>`).join('')}</div>`:'');
+  carregar(); }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }

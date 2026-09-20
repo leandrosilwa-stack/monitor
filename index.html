@@ -67,6 +67,7 @@
     <select id="n_analista" class="border p-2 rounded w-full mb-2"></select>
     <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
     <button id="btnAbrir" onclick="abrirChamado()" class="bg-green-600 text-white px-4 py-2 rounded">Rotear</button>
+    <button onclick="abrirModalImport()" class="bg-blue-600 text-white px-4 py-2 rounded ml-2">Importar Resolvidos</button>
     <p id="n_msg" class="text-sm mt-2"></p>
     </div>
     <div>
@@ -97,6 +98,18 @@
         <button onclick="fecharModal()" class="border px-4 py-2 rounded">Fechar</button>
       </div>
       <div id="redistList" class="text-sm"></div>
+    </div>
+   </div>
+   <div id="modalImport" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+    <div class="bg-white rounded shadow max-w-3xl w-full m-4 p-4 max-h-[85vh] overflow-auto">
+      <h3 class="font-bold mb-2">Importar Resolvidos (CSV)</h3>
+      <p class="text-xs text-slate-500 mb-2">Cabeçalho: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário. Datas dd/mm/yy hh:mm:ss. Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <input id="importFile" type="file" accept=".csv,.txt" class="border p-2 rounded text-sm">
+        <button onclick="processarImport()" class="bg-blue-600 text-white px-4 py-2 rounded">Importar</button>
+        <button onclick="fecharModalImport()" class="border px-4 py-2 rounded">Fechar</button>
+      </div>
+      <div id="importResult" class="text-sm"></div>
     </div>
    </div>
   </section>
