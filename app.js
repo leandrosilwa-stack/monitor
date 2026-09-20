@@ -257,7 +257,7 @@ async function confirmarRedist(){ const dest=document.getElementById('redistDest
 // ---------- importar resolvidos (CSV) ----------
 function abrirModalImport(){ document.getElementById('importResult').innerHTML=''; document.getElementById('modalImport').classList.remove('hidden'); }
 function fecharModalImport(){ document.getElementById('modalImport').classList.add('hidden'); }
-function normTxt(s){ return (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function normTxt(s){ return (s||'').replace(/ /g,' ').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); }
 function parseCSVLine(line){ const out=[]; let cur='',q=false;
   for(let i=0;i<line.length;i++){ const ch=line[i];
     if(q){ if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; }
