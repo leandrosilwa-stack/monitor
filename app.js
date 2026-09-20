@@ -268,28 +268,40 @@ async function processarImport(){ const inp=document.getElementById('importFile'
   const text=(await inp.files[0].text()).replace(/^\uFEFF/,'');
   const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
   if(lines.length<2){ res.innerText='Arquivo vazio.'; return; }
+  const head=normTxt(lines[0]);
+  const modo=head.includes('encerramento')?'resolvido':(head.includes('aguardando')?'aguardando':null);
+  if(!modo){ res.innerText='Cabeçalho não reconhecido. Use o formato de Resolvidos (encerramento) ou Aguardando (aguardando).'; return; }
   const slaMap={}, anaMap={};
   DB.slas.forEach(s=>slaMap[normTxt(s.descricao)]=s.id);
   DB.analistas.forEach(a=>anaMap[normTxt(a.nome)]=a.id);
   const vistos=new Set(DB.chamados.map(c=>c.numero.toLowerCase()));
-  const ok=[], rej=[];
+  const ok=[], rej=[], pausasPend=[];
   for(let i=1;i<lines.length;i++){ const col=parseCSVLine(lines[i]);
     if(col.length<7){ rej.push(`linha ${i+1}: colunas incompletas`); continue; }
-    const [id,ab,po,en,ve,desc,prop]=col;
+    const [id,ab,po,terceira,ve,desc,prop]=col;
     if(!id){ rej.push(`linha ${i+1}: sem ID`); continue; }
     if(vistos.has(id.toLowerCase())){ rej.push(`${id}: ID duplicado`); continue; }
     const sla_id=slaMap[normTxt(desc)];
     if(!sla_id){ rej.push(`${id}: SLA não cadastrado (${desc})`); continue; }
     const analista_id=anaMap[normTxt(prop)];
     if(!analista_id){ rej.push(`${id}: analista não cadastrado (${prop})`); continue; }
-    const dAb=parseBR(ab), dPo=parseBR(po), dEn=parseBR(en), dVe=parseBR(ve);
-    if(!dAb||!dPo||!dEn||!dVe){ rej.push(`${id}: data inválida`); continue; }
+    const dAb=parseBR(ab), dPo=parseBR(po), dX=parseBR(terceira), dVe=parseBR(ve);
+    if(!dAb||!dPo||!dX||!dVe){ rej.push(`${id}: data inválida`); continue; }
     vistos.add(id.toLowerCase());
-    ok.push({numero:id,sla_id,analista_id,status:'Resolvido',data_abertura:dAb.toISOString(),data_posse:dPo.toISOString(),data_resolvido:dEn.toISOString(),data_vencimento:dVe.toISOString(),priorizado:false,solicitar_devolucao:false}); }
+    if(modo==='resolvido') ok.push({numero:id,sla_id,analista_id,status:'Resolvido',data_abertura:dAb.toISOString(),data_posse:dPo.toISOString(),data_resolvido:dX.toISOString(),data_vencimento:dVe.toISOString(),priorizado:false,solicitar_devolucao:false});
+    else { ok.push({numero:id,sla_id,analista_id,status:'Aguardando Cliente',data_abertura:dAb.toISOString(),data_posse:dPo.toISOString(),data_vencimento:dVe.toISOString(),priorizado:false,solicitar_devolucao:false});
+      pausasPend.push({numero:id,inicio:dX.toISOString()}); } }
   let ins=0;
   for(let k=0;k<ok.length;k+=100){ const {error}=await sb.from('chamados').insert(ok.slice(k,k+100));
     if(error){ res.innerHTML=`Erro ao inserir: ${error.message}`; return; } ins+=Math.min(100,ok.length-k); }
-  res.innerHTML=`<div class="font-bold text-green-700 mb-2">${ins} importados, ${rej.length} rejeitados.</div>`+(rej.length?`<div class="max-h-60 overflow-auto">${rej.map(r=>`<div class="border-b py-0.5">${r}</div>`).join('')}</div>`:'');
+  if(pausasPend.length){ const nums=pausasPend.map(p=>p.numero);
+    const {data:ids,error:e2}=await sb.from('chamados').select('id,numero').in('numero',nums);
+    if(e2){ res.innerHTML=`Chamados inseridos, mas falha ao registrar pausas: ${e2.message}`; return; }
+    const byNum={}; (ids||[]).forEach(r=>byNum[r.numero]=r.id);
+    const rows=pausasPend.filter(p=>byNum[p.numero]).map(p=>({chamado_id:byNum[p.numero],inicio:p.inicio}));
+    for(let k=0;k<rows.length;k+=100){ const {error:e3}=await sb.from('chamado_pausas').insert(rows.slice(k,k+100));
+      if(e3){ res.innerHTML=`Chamados inseridos, mas falha nas pausas: ${e3.message}`; return; } } }
+  res.innerHTML=`<div class="font-bold text-green-700 mb-2">${ins} importados (${modo==='resolvido'?'Resolvidos':'Aguardando Cliente'}), ${rej.length} rejeitados.</div>`+(rej.length?`<div class="max-h-60 overflow-auto">${rej.map(r=>`<div class="border-b py-0.5">${r}</div>`).join('')}</div>`:'');
   carregar(); }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
