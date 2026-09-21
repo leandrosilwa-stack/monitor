@@ -175,8 +175,8 @@ async function acao(id,tipo){
   const c=DB.chamados.find(x=>x.id===id); if(!c) return;
   const agora=new Date();
   if(tipo==='ativar'){ const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla) return alert('SLA não encontrado.');
-    let aid=c.analista_id; const an=DB.analistas.find(a=>a.id===aid);
-    if(!aid||!an||!analistaDisponivel(an)){ const r=rankingAnalistas(); aid=r[0]?r[0].id:aid; }
+    let aid=c.analista_id;
+    if(!aid){ const r=rankingAnalistas(); aid=r[0]?r[0].id:null; }
     const venc=adicionarHorasUteis(agora,sla.prazo_horas);
     await sb.from('chamados').update({status:'Aguardando Atendimento',data_abertura:agora.toISOString(),data_vencimento:venc.toISOString(),analista_id:aid}).eq('id',id); }
   if(tipo==='posse') await sb.from('chamados').update({status:'Em atendimento',data_posse:agora.toISOString(),analista_id:c.analista_id}).eq('id',id);
