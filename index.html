@@ -62,9 +62,10 @@
     <p id="n_aviso" class="text-xs text-red-600 mb-2"></p>
     <label class="text-sm">Descrição SLA</label>
     <select id="n_sla" class="border p-2 rounded w-full mb-2"></select>
+	<label class="text-sm flex items-center gap-2 mb-2"><input id="n_vaga" type="checkbox" onchange="document.getElementById('n_data').disabled=this.checked"> Aguardando vaga (sem data de abertura)</label>
     <label class="text-sm">Data abertura</label>
     <input id="n_data" class="border p-2 rounded w-full mb-2">
-    <label class="text-sm flex items-center gap-2 mb-2"><input id="n_vaga" type="checkbox" onchange="document.getElementById('n_data').disabled=this.checked"> Aguardando vaga (sem data de abertura)</label>
+    <!--<label class="text-sm flex items-center gap-2 mb-2"><input id="n_vaga" type="checkbox" onchange="document.getElementById('n_data').disabled=this.checked"> Aguardando vaga (sem data de abertura)</label>-->
     <label class="text-sm">Analista</label>
     <select id="n_analista" class="border p-2 rounded w-full mb-2"></select>
     <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
