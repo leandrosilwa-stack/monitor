@@ -100,7 +100,7 @@ function renderRouter(){ const el=document.getElementById('routerList'); if(!el)
   el.innerHTML=arr.length?arr.map(c=>`<div class="flex justify-between items-center border-b py-1"><span>#${c.numero} — ${nomeAnalista(c.analista_id)} — ${fmtDT(c.data_abertura)}</span><button onclick="acao('${c.id}','devolver')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Devolver chamado</button></div>`).join(''):'<div class="text-slate-500">Nenhum aguardando devolução.</div>'; }
 
 function renderAbertos(){ const el=document.getElementById('abertosList'); if(!el) return;
-  const arr=DB.chamados.filter(c=>c.status!=='Resolvido').sort((a,b)=>new Date(a.data_vencimento)-new Date(b.data_vencimento));
+  const arr=DB.chamados.filter(c=>c.status!=='Resolvido').sort((a,b)=>((a.data_vencimento?new Date(a.data_vencimento):Infinity)-(b.data_vencimento?new Date(b.data_vencimento):Infinity)));
   el.innerHTML=arr.length?`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Nº</th><th>Analista</th><th>Status</th><th>Vencimento</th><th></th></tr>${arr.map(c=>`<tr class="border-t ${c.priorizado?'prio':''}"><td class="p-1 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_vencimento)}</td><td class="whitespace-nowrap"><button onclick="acao('${c.id}','prio')" class="underline ${c.priorizado?'text-green-700':'text-red-700'} text-xs mr-2">${c.priorizado?'Despriorizar':'Priorizar'}</button><button onclick="abrirRedistUm('${c.id}')" class="underline text-blue-700 text-xs">Redistribuir</button></td></tr>`).join('')}</table>`:'<div class="text-slate-500">Nenhum chamado aberto.</div>'; }
 
 // ---------- distribuição por média ----------
@@ -145,15 +145,20 @@ function verificarNumero(){ const v=document.getElementById('n_numero').value.tr
 async function abrirChamado(){
   const numero=document.getElementById('n_numero').value.trim();
   const sla_id=document.getElementById('n_sla').value;
-  const dt=parseBR(document.getElementById('n_data').value.trim());
+  const vaga=document.getElementById('n_vaga')&&document.getElementById('n_vaga').checked;
+  const dtRaw=document.getElementById('n_data').value.trim();
+  const dt=vaga?null:parseBR(dtRaw);
   let analista_id=document.getElementById('n_analista').value||null;
   const msg=document.getElementById('n_msg');
-  if(!numero||!sla_id||!dt){ msg.innerText='Preencha nº, SLA e data válida.'; return; }
+  if(!numero||!sla_id||(!vaga&&!dt)){ msg.innerText=vaga?'Preencha nº e SLA.':'Preencha nº, SLA e data válida.'; return; }
   if(numeroExiste(numero)){ msg.innerText='Número já existe. Use outro número.'; return; }
-  if(!analista_id){ const r=rankingAnalistas(); analista_id=r[0]?r[0].id:null; }
   if(analista_id&&isTesteId(analista_id)){ if(!confirm('O chamado será cadastrado para o analista TESTE. Confirma? (só para apresentação)')) return; }
-  else if(analista_id){ const an=DB.analistas.find(a=>a.id===analista_id);
+  else if(analista_id&&!vaga){ const an=DB.analistas.find(a=>a.id===analista_id);
     if(!an||!analistaDisponivel(an)){ msg.innerText='Analista indisponível (inativo ou ausente). Escolha outro.'; return; } }
+  if(vaga){ const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Priorização',data_abertura:null,data_vencimento:null,priorizado:false,solicitar_devolucao:false});
+    msg.innerText=error?'Erro: '+error.message:'Cadastrado em Aguardando Priorização!';
+    if(!error){ document.getElementById('n_numero').value=''; carregar(); } return; }
+  if(!analista_id){ const r=rankingAnalistas(); analista_id=r[0]?r[0].id:null; }
   const sla=DB.slas.find(s=>s.id===sla_id);
   const venc=adicionarHorasUteis(dt,sla.prazo_horas);
   const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Atendimento',data_abertura:dt.toISOString(),data_vencimento:venc.toISOString(),priorizado:false});
@@ -169,6 +174,11 @@ async function fecharPausaUtil(chamado_id, agora){
 async function acao(id,tipo){
   const c=DB.chamados.find(x=>x.id===id); if(!c) return;
   const agora=new Date();
+  if(tipo==='ativar'){ const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla) return alert('SLA não encontrado.');
+    let aid=c.analista_id; const an=DB.analistas.find(a=>a.id===aid);
+    if(!aid||!an||!analistaDisponivel(an)){ const r=rankingAnalistas(); aid=r[0]?r[0].id:aid; }
+    const venc=adicionarHorasUteis(agora,sla.prazo_horas);
+    await sb.from('chamados').update({status:'Aguardando Atendimento',data_abertura:agora.toISOString(),data_vencimento:venc.toISOString(),analista_id:aid}).eq('id',id); }
   if(tipo==='posse') await sb.from('chamados').update({status:'Em atendimento',data_posse:agora.toISOString(),analista_id:c.analista_id}).eq('id',id);
   if(tipo==='cliente'){ await sb.from('chamados').update({status:'Aguardando Cliente',solicitar_devolucao:false}).eq('id',id);
     await sb.from('chamado_pausas').insert({chamado_id:id,inicio:agora.toISOString()}); }
@@ -187,9 +197,10 @@ async function acao(id,tipo){
 // ---------- render ----------
 function nomeAnalista(id){ return DB.analistas.find(a=>a.id===id)?.nome||'-'; }
 function descSla(id){ const s=DB.slas.find(x=>x.id===id); return s?`${s.descricao} (${s.prazo_horas}h)`:'-'; }
-function vencido(c){ return c.status!=='Resolvido'&&new Date(c.data_vencimento)<new Date(); }
+function vencido(c){ return c.status!=='Resolvido'&&c.status!=='Aguardando Priorização'&&!!c.data_vencimento&&new Date(c.data_vencimento)<new Date(); }
 // ---------- aging (% do prazo consumido, só tempo útil) ----------
-function agingInfo(c){ const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla||!sla.prazo_horas) return null;
+function agingInfo(c){ if(!c.data_abertura) return null;
+  const sla=DB.slas.find(s=>s.id===c.sla_id); if(!sla||!sla.prazo_horas) return null;
   const total=sla.prazo_horas*3600; if(total<=0) return null;
   const fim=c.status==='Resolvido'&&c.data_resolvido?new Date(c.data_resolvido):new Date();
   let cons=duracaoUtilSeg(c.data_abertura,fim);
@@ -203,6 +214,11 @@ function agingBar(c){ const a=agingInfo(c); if(!a) return '';
   return `<div class="mt-1"><div class="flex justify-between text-xs"><span>AGING</span><span style="color:${cor};font-weight:bold">${p}%</span></div><div class="h-1.5 bg-slate-200 rounded"><div class="h-1.5 rounded" style="width:${w}%;background:${cor}"></div></div></div>`; }
 function card(c){
   const emDev=c.solicitar_devolucao&&c.status==='Aguardando Cliente';
+  if(c.status==='Aguardando Priorização') return `<div class="bg-white p-2 rounded shadow text-sm ${c.priorizado?'prio':''}">
+  <div class="font-bold">${c.priorizado?'🔥 ':''}#${c.numero}</div>
+  <div>${descSla(c.sla_id)}</div>
+  <div>👤 ${nomeAnalista(c.analista_id)}</div>
+  <div class="flex flex-wrap gap-1 mt-2"><button onclick="acao('${c.id}','ativar')" class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">Aguardando atendimento</button></div></div>`;
   let btns='';
   if(c.status==='Aguardando Atendimento') btns=`<button onclick="acao('${c.id}','posse')" class="bg-blue-600 text-white px-2 py-0.5 rounded text-xs">Iniciar atendimento</button>`;
   else if(c.status==='Em atendimento') btns=`<button onclick="acao('${c.id}','cliente')" class="bg-amber-500 text-white px-2 py-0.5 rounded text-xs">Ag. Cliente</button> <button onclick="acao('${c.id}','resolver')" class="bg-slate-800 text-white px-2 py-0.5 rounded text-xs">Resolver</button>`;
@@ -223,13 +239,14 @@ function card(c){
 function filtrados(){ const st=document.getElementById('filtroStatus').value; const b=document.getElementById('busca').value.toLowerCase();
   const fa=document.getElementById('filtroAnalista'); const aid=fa?fa.value:'';
   return DB.chamados.filter(c=>(!st||c.status===st)&&(!aid||c.analista_id===aid)&&(!b||c.numero.toLowerCase().includes(b)))
-    .sort((a,b)=>(b.priorizado-a.priorizado)||(new Date(a.data_vencimento)-new Date(b.data_vencimento))); }
+    .sort((a,b)=>(b.priorizado-a.priorizado)||((a.data_vencimento?new Date(a.data_vencimento):Infinity)-(b.data_vencimento?new Date(b.data_vencimento):Infinity))); }
 
 function render(){ const list=filtrados();
   document.getElementById('kanban').classList.toggle('hidden',view!=='kanban');
   document.getElementById('lista').classList.toggle('hidden',view!=='lista');
   if(view==='kanban'){
     const defs=[
+      {t:'Aguardando Priorização',f:c=>c.status==='Aguardando Priorização'},
       {t:'Aguardando Atendimento',f:c=>c.status==='Aguardando Atendimento'},
       {t:'Em atendimento',f:c=>c.status==='Em atendimento'},
       {t:'Aguardando Cliente',f:c=>c.status==='Aguardando Cliente'&&!c.solicitar_devolucao},
@@ -237,7 +254,7 @@ function render(){ const list=filtrados();
       {t:'Resolvido',f:c=>c.status==='Resolvido'}];
     document.getElementById('kanban').innerHTML=defs.map(d=>{ const arr=list.filter(d.f);
       return `<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${d.t} (${arr.length})</h3><div class="space-y-2 kanban-col">${arr.map(card).join('')}</div></div>`; }).join(''); }
-  else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Iniciar</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> <button onclick="acao('${c.id}','solicitar')" class="text-purple-700 underline text-xs">Solicitar</button> `:''}${c.status!=='Resolvido'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
+  else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Priorização'?`<button onclick="acao('${c.id}','ativar')" class="text-blue-700 underline text-xs">Ativar</button>`:''}${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Iniciar</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> <button onclick="acao('${c.id}','solicitar')" class="text-purple-700 underline text-xs">Solicitar</button> `:''}${c.status!=='Resolvido'&&c.status!=='Aguardando Priorização'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
 
 // ---------- redistribuir (por chamado, ordem de roteamento) ----------
 let redistUmId=null;
@@ -307,7 +324,7 @@ async function processarImport(){ const inp=document.getElementById('importFile'
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }
 function renderDash(){ const n=new Date(); const eq=chamadosEquipe(); const mes=eq.filter(c=>new Date(c.data_abertura).getMonth()===n.getMonth());
-  const k=[['Abertos',eq.filter(c=>c.status!=='Resolvido').length],['Aguard.Atend.',eq.filter(c=>c.status==='Aguardando Atendimento').length],['Vencidos',eq.filter(vencido).length],['Resolvidos mês',mes.filter(c=>c.status==='Resolvido').length],['No prazo',eq.filter(c=>c.status!=='Resolvido'&&!vencido(c)).length]];
+  const k=[['Ag. Priorização',eq.filter(c=>c.status==='Aguardando Priorização').length],['Abertos',eq.filter(c=>c.status!=='Resolvido'&&c.status!=='Aguardando Priorização').length],['Aguard.Atend.',eq.filter(c=>c.status==='Aguardando Atendimento').length],['Vencidos',eq.filter(vencido).length],['Resolvidos mês',mes.filter(c=>c.status==='Resolvido').length],['No prazo',eq.filter(c=>c.status!=='Resolvido'&&c.status!=='Aguardando Priorização'&&!vencido(c)).length]];
   document.getElementById('kpis').innerHTML=k.map(x=>`<div class="bg-white p-3 rounded shadow text-center"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs">${x[0]}</div></div>`).join('');
   document.getElementById('mediaTable').innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Recebidos</th><th>Dias úteis trab.</th><th>Média/dia</th></tr>${[...DB.analistas].filter(a=>!isTesteNome(a.nome)).sort((a,b)=>a.nome.localeCompare(b.nome)).map(a=>{
     const rec=DB.chamados.filter(c=>c.analista_id===a.id&&new Date(c.data_abertura).getMonth()===n.getMonth()&&new Date(c.data_abertura).getFullYear()===n.getFullYear()).length;

@@ -37,6 +37,7 @@
       </div>
       <select id="filtroStatus" onchange="render()" class="border p-1 rounded text-sm">
         <option value="">Todos status</option>
+        <option>Aguardando Priorização</option>
         <option>Aguardando Atendimento</option>
         <option>Em atendimento</option>
         <option>Aguardando Cliente</option>
@@ -47,7 +48,7 @@
       <button onclick="carregar()" class="bg-slate-800 text-white px-3 py-1 rounded text-sm">Atualizar</button>
       <span id="countdown" class="text-xs text-slate-500"></span>
     </div>
-    <div id="kanban" class="grid md:grid-cols-5 gap-3"></div>
+    <div id="kanban" class="grid md:grid-cols-6 gap-3"></div>
     <div id="lista" class="hidden bg-white rounded shadow overflow-auto"></div>
   </section>
 
@@ -63,6 +64,7 @@
     <select id="n_sla" class="border p-2 rounded w-full mb-2"></select>
     <label class="text-sm">Data abertura</label>
     <input id="n_data" class="border p-2 rounded w-full mb-2">
+    <label class="text-sm flex items-center gap-2 mb-2"><input id="n_vaga" type="checkbox" onchange="document.getElementById('n_data').disabled=this.checked"> Aguardando vaga (sem data de abertura)</label>
     <label class="text-sm">Analista</label>
     <select id="n_analista" class="border p-2 rounded w-full mb-2"></select>
     <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
@@ -117,7 +119,7 @@
 
   <!-- DASH -->
   <section id="tab-dash" class="tab hidden">
-    <div id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+    <div id="kpis" class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4"></div>
     <div class="bg-white p-4 rounded shadow">
       <h3 class="font-bold mb-2">Média por analista (mês atual)</h3>
       <div id="mediaTable" class="text-sm overflow-auto"></div>
