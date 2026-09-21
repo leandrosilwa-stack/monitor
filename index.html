@@ -69,13 +69,20 @@
     <select id="n_analista" class="border p-2 rounded w-full mb-2"></select>
     <p class="text-xs text-slate-500 mb-2">Topo = menor média chamados/dia útil no mês. Empate = alfabética. Somente ativos e não ausentes.</p>
     <button id="btnAbrir" onclick="abrirChamado()" class="bg-green-600 text-white px-4 py-2 rounded">Rotear</button>
-    <button onclick="abrirModalImport()" class="bg-blue-600 text-white px-4 py-2 rounded ml-2">Importar Resolvidos</button>
-    <button onclick="abrirModalImport()" class="bg-teal-600 text-white px-4 py-2 rounded ml-2">Importar Aguardando</button>
     <p id="n_msg" class="text-sm mt-2"></p>
     </div>
     <div>
      <!--<h3 class="font-bold mb-2">Analistas — recebidos</h3>-->
      <div id="analistasResumo" class="text-sm overflow-auto"></div>
+    </div>
+   </div>
+   <div class="bg-white p-4 rounded shadow mb-4">
+    <h3 class="font-bold mb-2">Importação</h3>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="abrirModalImport()" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Resolvidos</button>
+      <button onclick="abrirModalImport()" class="bg-teal-600 text-white px-3 py-1 rounded text-sm">Ag. Cliente</button>
+      <button onclick="abrirModalImport()" class="bg-amber-600 text-white px-3 py-1 rounded text-sm">Em atendimento</button>
+      <button onclick="abrirModalImport()" class="bg-slate-700 text-white px-3 py-1 rounded text-sm">Ag. Atendimento</button>
     </div>
    </div>
    <div class="bg-white p-4 rounded shadow mb-4">
@@ -106,7 +113,7 @@
    <div id="modalImport" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
     <div class="bg-white rounded shadow max-w-3xl w-full m-4 p-4 max-h-[85vh] overflow-auto">
       <h3 class="font-bold mb-2">Importar CSV</h3>
-      <p class="text-xs text-slate-500 mb-2">Resolvidos: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário. Aguardando: ID,abertura,posse,aguardando,vencimento,Descrição,Proprietário. Datas dd/mm/yy hh:mm:ss. O formato é detectado pelo cabeçalho. Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p>
+      <p class="text-xs text-slate-500 mb-2">Resolvidos: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário. Ag. Cliente: ID,abertura,posse,aguardando,vencimento,Descrição,Proprietário. Em atendimento: ID,abertura,posse,vencimento,Descrição,Proprietário. Ag. Atendimento: ID,abertura,vencimento,Descrição,Proprietário. Datas dd/mm/yy hh:mm:ss. O formato é detectado pelo cabeçalho. Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p>
       <div class="flex flex-wrap gap-2 mb-2">
         <input id="importFile" type="file" accept=".csv,.txt" class="border p-2 rounded text-sm">
         <button onclick="processarImport()" class="bg-blue-600 text-white px-4 py-2 rounded">Importar</button>
