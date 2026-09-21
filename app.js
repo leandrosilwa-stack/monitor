@@ -100,7 +100,11 @@ function renderRouter(){ const el=document.getElementById('routerList'); if(!el)
   el.innerHTML=arr.length?arr.map(c=>`<div class="flex justify-between items-center border-b py-1"><span>#${c.numero} — ${nomeAnalista(c.analista_id)} — ${fmtDT(c.data_abertura)}</span><button onclick="acao('${c.id}','devolver')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Devolver chamado</button></div>`).join(''):'<div class="text-slate-500">Nenhum aguardando devolução.</div>'; }
 
 function renderAbertos(){ const el=document.getElementById('abertosList'); if(!el) return;
-  const arr=DB.chamados.filter(c=>c.status!=='Resolvido').sort((a,b)=>((a.data_vencimento?new Date(a.data_vencimento):Infinity)-(b.data_vencimento?new Date(b.data_vencimento):Infinity)));
+  const fa=document.getElementById('filtroAnalistaR');
+  if(fa){ const cur=fa.value; const orden=[...DB.analistas].sort((a,b)=>a.nome.localeCompare(b.nome));
+    fa.innerHTML='<option value="">Todos analistas</option>'+orden.map(a=>`<option value="${a.id}">${a.nome}</option>`).join(''); fa.value=cur||''; }
+  const b=(document.getElementById('buscaR').value||'').toLowerCase(), aid=fa?fa.value:'';
+  const arr=DB.chamados.filter(c=>c.status!=='Resolvido'&&(!aid||c.analista_id===aid)&&(!b||c.numero.toLowerCase().includes(b))).sort((a,b)=>((a.data_vencimento?new Date(a.data_vencimento):Infinity)-(b.data_vencimento?new Date(b.data_vencimento):Infinity)));
   el.innerHTML=arr.length?`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Nº</th><th>Analista</th><th>Status</th><th>Vencimento</th><th></th></tr>${arr.map(c=>`<tr class="border-t ${c.priorizado?'prio':''}"><td class="p-1 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_vencimento)}</td><td class="whitespace-nowrap"><button onclick="acao('${c.id}','prio')" class="underline ${c.priorizado?'text-green-700':'text-red-700'} text-xs mr-2">${c.priorizado?'Despriorizar':'Priorizar'}</button><button onclick="abrirRedistUm('${c.id}')" class="underline text-blue-700 text-xs">Redistribuir</button></td></tr>`).join('')}</table>`:'<div class="text-slate-500">Nenhum chamado aberto.</div>'; }
 
 // ---------- distribuição por média ----------
