@@ -246,10 +246,10 @@ function render(){ const list=filtrados();
   document.getElementById('lista').classList.toggle('hidden',view!=='lista');
   if(view==='kanban'){
     const defs=[
-      {t:'Aguardando Priorização',f:c=>c.status==='Aguardando Priorização'},
-      {t:'Aguardando Atendimento',f:c=>c.status==='Aguardando Atendimento'},
+      {t:'Ag. Priorização',f:c=>c.status==='Aguardando Priorização'},
+      {t:'Ag. Atendimento',f:c=>c.status==='Aguardando Atendimento'},
       {t:'Em atendimento',f:c=>c.status==='Em atendimento'},
-      {t:'Aguardando Cliente',f:c=>c.status==='Aguardando Cliente'&&!c.solicitar_devolucao},
+      {t:'Ag. Cliente',f:c=>c.status==='Aguardando Cliente'&&!c.solicitar_devolucao},
       {t:'Devolução solicitada',f:c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente'},
       {t:'Resolvido',f:c=>c.status==='Resolvido'}];
     document.getElementById('kanban').innerHTML=defs.map(d=>{ const arr=list.filter(d.f);
