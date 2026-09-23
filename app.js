@@ -48,7 +48,10 @@ function duracaoUtilSeg(ini,fim){
 
 // ---------- supabase (conexão fixa, sem localStorage) ----------
 function init(){
-  document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
+  document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{ if(b.dataset.tab==='relatorios'&&!window._relOk){
+      const s=prompt('Senha de acesso aos Relatórios:');
+      if(s!==window.SENHA_RELATORIOS){ alert('Senha incorreta.'); return; } window._relOk=true; }
+    document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
     document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden'); });
   document.getElementById('n_data').value=nowBR(); setView(view);
   if(!window.SUPABASE_URL||window.SUPABASE_URL.includes('COLE_AQUI')){ document.getElementById('tab-board').innerHTML='<div class="bg-white p-4 rounded shadow">Configure <b>config.js</b> com URL e anon key do Supabase e suba no GitHub.</div>'; return; }
