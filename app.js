@@ -200,6 +200,7 @@ async function acao(id,tipo){
   if(tipo==='rejeitar'){ const base=c.data_resolvido?new Date(c.data_resolvido):agora;
     const dur=duracaoUtilSeg(base,agora);
     const novoVenc=adicionarHorasUteis(new Date(c.data_vencimento),dur/3600);
+    if(c.data_resolvido&&dur>0) await sb.from('chamado_pausas').insert({chamado_id:id,inicio:base.toISOString(),fim:agora.toISOString(),duracao_util_seg:dur});
     await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString(),data_resolvido:null,solicitar_devolucao:false}).eq('id',id); }
   if(tipo==='resolver') await sb.from('chamados').update({status:'Resolvido',data_resolvido:agora.toISOString(),solicitar_devolucao:false}).eq('id',id);
   if(tipo==='prio') await sb.from('chamados').update({priorizado:!c.priorizado}).eq('id',id);
