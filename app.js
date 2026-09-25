@@ -197,6 +197,10 @@ async function acao(id,tipo){
   if(tipo==='devolver'){ const dur=await fecharPausaUtil(id,agora);
     const novoVenc=adicionarHorasUteis(new Date(c.data_vencimento),dur/3600);
     await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString(),solicitar_devolucao:false}).eq('id',id); }
+  if(tipo==='rejeitar'){ const base=c.data_resolvido?new Date(c.data_resolvido):agora;
+    const dur=duracaoUtilSeg(base,agora);
+    const novoVenc=adicionarHorasUteis(new Date(c.data_vencimento),dur/3600);
+    await sb.from('chamados').update({status:'Em atendimento',data_vencimento:novoVenc.toISOString(),data_resolvido:null,solicitar_devolucao:false}).eq('id',id); }
   if(tipo==='resolver') await sb.from('chamados').update({status:'Resolvido',data_resolvido:agora.toISOString(),solicitar_devolucao:false}).eq('id',id);
   if(tipo==='prio') await sb.from('chamados').update({priorizado:!c.priorizado}).eq('id',id);
   carregar(); }
@@ -231,7 +235,7 @@ function card(c){
   else if(c.status==='Em atendimento') btns=`<button onclick="acao('${c.id}','cliente')" class="bg-amber-500 text-white px-2 py-0.5 rounded text-xs">Ag. Cliente</button> <button onclick="acao('${c.id}','resolver')" class="bg-slate-800 text-white px-2 py-0.5 rounded text-xs">Resolver</button>`;
   else if(emDev) btns='';
   else if(c.status==='Aguardando Cliente') btns=`<button onclick="acao('${c.id}','solicitar')" class="bg-purple-600 text-white px-2 py-0.5 rounded text-xs">Solicitar devolução</button>`;
-  else if(c.status==='Resolvido') btns='';
+  else if(c.status==='Resolvido') btns=`<button onclick="acao('${c.id}','rejeitar')" class="bg-red-600 text-white px-2 py-0.5 rounded text-xs">Analisar rejeite</button>`;
   return `<div class="bg-white p-2 rounded shadow text-sm ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}">
   <div class="font-bold">${c.priorizado?'🔥 ':''}#${c.numero}</div>
   <div>👤 ${nomeAnalista(c.analista_id)}</div>
@@ -261,7 +265,7 @@ function render(){ const list=filtrados();
       {t:'Resolvido',f:c=>c.status==='Resolvido'}];
     document.getElementById('kanban').innerHTML=defs.map(d=>{ const arr=list.filter(d.f);
       return `<div class="bg-slate-200 rounded p-2"><h3 class="font-bold text-sm mb-2">${d.t} (${arr.length})</h3><div class="space-y-2 kanban-col">${arr.map(card).join('')}</div></div>`; }).join(''); }
-  else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Priorização'?`<button onclick="acao('${c.id}','ativar')" class="text-blue-700 underline text-xs">Ativar</button>`:''}${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Iniciar</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> <button onclick="acao('${c.id}','solicitar')" class="text-purple-700 underline text-xs">Solicitar</button> `:''}${c.status!=='Resolvido'&&c.status!=='Aguardando Priorização'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
+  else document.getElementById('lista').innerHTML=`<table class="w-full text-sm"><tr class="bg-slate-200"><th class="p-2 text-left">Nº</th><th>SLA</th><th>Analista</th><th>Status</th><th>Abertura</th><th>Vencimento</th><th>Ações</th></tr>${list.map(c=>`<tr class="border-t ${c.priorizado?'prio':''} ${vencido(c)?'vencido':''}"><td class="p-2 font-bold">${c.priorizado?'🔥 ':''}${c.numero}</td><td>${descSla(c.sla_id)}</td><td>${nomeAnalista(c.analista_id)}</td><td>${c.status}${c.solicitar_devolucao?' + devolução':''}</td><td>${fmtDT(c.data_abertura)}</td><td>${fmtDT(c.data_vencimento)}</td><td class="p-1">${c.status==='Aguardando Priorização'?`<button onclick="acao('${c.id}','ativar')" class="text-blue-700 underline text-xs">Ativar</button>`:''}${c.status==='Aguardando Atendimento'?`<button onclick="acao('${c.id}','posse')" class="text-blue-700 underline text-xs">Iniciar</button> `:''}${c.status==='Em atendimento'?`<button onclick="acao('${c.id}','cliente')" class="text-amber-700 underline text-xs">Ag.Cliente</button> `:''}${c.status==='Aguardando Cliente'&&!c.solicitar_devolucao?`<button onclick="acao('${c.id}','retornar')" class="text-green-700 underline text-xs">Retornar</button> <button onclick="acao('${c.id}','solicitar')" class="text-purple-700 underline text-xs">Solicitar</button> `:''}${c.status==='Resolvido'?`<button onclick="acao('${c.id}','rejeitar')" class="text-red-700 underline text-xs">Rejeitar</button>`:''}${c.status!=='Resolvido'&&c.status!=='Aguardando Priorização'?`<button onclick="acao('${c.id}','resolver')" class="text-slate-800 underline text-xs">Resolver</button>`:''}</td></tr>`).join('')}</table>`; }
 
 // ---------- redistribuir (por chamado, ordem de roteamento) ----------
 let redistUmId=null;
