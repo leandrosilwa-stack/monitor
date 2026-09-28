@@ -58,12 +58,19 @@ function init(){
   sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON); carregar(); startAuto();
   const cd0=document.getElementById('countdown'); if(cd0) cd0.innerText='atualiza em 2:00';
   const rc0=document.getElementById('routerCountdown'); if(rc0) rc0.innerText='atualiza em 2:00'; }
-function tick(){ const el=document.getElementById('countdown'); countdownSec--;
-  const re=document.getElementById('routerCountdown'); routerSec--;
-  if(countdownSec<=0){ countdownSec=120; if(el) el.innerText='atualiza em 2:00'; carregar(); }
+function tick(){ const el=document.getElementById('countdown'); countdownSec--; routerSec--;
+  const re=document.getElementById('routerCountdown');
+  if(countdownSec<=0){ countdownSec=120; if(el) el.innerText='atualiza em 2:00'; carregarBoard(); }
   else if(el) el.innerText='atualiza em '+Math.floor(countdownSec/60)+':'+String(countdownSec%60).padStart(2,'0');
-  if(routerSec<=0){ routerSec=120; if(re) re.innerText='atualiza em 2:00'; carregarRouter(); }
+  if(routerSec<=0){ routerSec=120; if(re) re.innerText='atualiza em 2:00'; carregarPainelRouter(); }
   else if(re) re.innerText='atualiza em '+Math.floor(routerSec/60)+':'+String(routerSec%60).padStart(2,'0'); }
+
+async function carregarPainelRouter(){ if(!sb) return;
+  const [c,p]=await Promise.all([
+    sb.from('chamados').select('*').order('data_abertura',{ascending:false}),
+    sb.from('chamado_pausas').select('*')]);
+  DB.chamados=c.data||[]; DB.pausas=p.data||[];
+  renderRouter(); }
 function startAuto(){ setInterval(tick,1000); }
 function setView(v){ view=v;
   document.getElementById('btnKanban').className='px-3 py-1 rounded text-sm '+(v==='kanban'?'bg-slate-900 text-white':'');
@@ -81,6 +88,13 @@ async function carregar(){ if(!sb) return;
   DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[]};
   fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); verificarNumero(); }
 
+async function carregarBoard(){ if(!sb) return;
+  const [c,p]=await Promise.all([
+    sb.from('chamados').select('*').order('data_abertura',{ascending:false}),
+    sb.from('chamado_pausas').select('*')]);
+  DB.chamados=c.data||[]; DB.pausas=p.data||[];
+  render(); }
+
 function fillFiltroAnalista(){ const el=document.getElementById('filtroAnalista'); if(!el) return;
   const cur=el.value; const orden=[...DB.analistas].sort((a,b)=>a.nome.localeCompare(b.nome));
   el.innerHTML='<option value="">Todos analistas</option>'+orden.map(a=>`<option value="${a.id}">${a.nome}</option>`).join('');
@@ -96,13 +110,6 @@ function renderResumo(){ const el=document.getElementById('analistasResumo'); if
     const dias=diasUteisMes(hoje.getFullYear(),hoje.getMonth(),a.id);
     const tag=a.status!=='ativo'?' (inativo)':(ausenteHoje(a.id)?' (ausente)':'');
     return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td>${h}</td><td>${m}</td><td>${(m/dias).toFixed(2)}</td></tr>`; }).join('')}</table>`; }
-
-async function carregarRouter(){ if(!sb) return;
-  const [c,p]=await Promise.all([
-    sb.from('chamados').select('*').order('data_abertura',{ascending:false}),
-    sb.from('chamado_pausas').select('*')]);
-  DB.chamados=c.data||[]; DB.pausas=p.data||[];
-  renderRouter(); }
 
 function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
   const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');

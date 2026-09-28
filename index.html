@@ -46,7 +46,7 @@
       </select>
       <input id="busca" oninput="render()" placeholder="Buscar nº..." class="border p-1 rounded text-sm">
       <select id="filtroAnalista" onchange="render()" class="border p-1 rounded text-sm"><option value="">Todos analistas</option></select>
-      <button onclick="carregar()" class="bg-slate-800 text-white px-3 py-1 rounded text-sm">Atualizar</button>
+      <button onclick="carregarBoard()" class="bg-slate-800 text-white px-3 py-1 rounded text-sm">Atualizar</button>
       <span id="countdown" class="text-xs text-slate-500"></span>
     </div>
     <div id="kanban" class="grid md:grid-cols-6 gap-3"></div>
@@ -90,7 +90,6 @@
    <div class="bg-white p-4 rounded shadow mb-4">
     <div class="flex items-center gap-2 mb-2">
       <h3 class="font-bold">Ações do roteador</h3>
-      <button onclick="carregarRouter()" class="bg-slate-800 text-white px-2 py-0.5 rounded text-xs">Atualizar</button>
       <span id="routerCountdown" class="text-xs text-slate-500"></span>
     </div>
     <!--<h3 class="font-bold mb-2">Ações do roteador</h3>-->
