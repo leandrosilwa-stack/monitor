@@ -169,7 +169,7 @@ async function abrirChamado(){
   else if(analista_id&&!vaga){ const an=DB.analistas.find(a=>a.id===analista_id);
     if(!an||!analistaDisponivel(an)){ msg.innerText='Analista indisponível (inativo ou ausente). Escolha outro.'; return; } }
   if(vaga){ const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Priorização',data_abertura:null,data_vencimento:null,priorizado:false,solicitar_devolucao:false});
-    msg.innerText=error?'Erro: '+error.message:'Cadastrado em Aguardando Priorização!';
+    msg.innerText=error?'Erro: '+error.message:`Chamado ${numero} cadastrado em Aguardando Priorização para ${nomeAnalista(analista_id)}!`;
     if(!error){ document.getElementById('n_numero').value=''; carregar(); } return; }
   if(!analista_id){ const r=rankingAnalistas(); analista_id=r[0]?r[0].id:null; }
   const sla=DB.slas.find(s=>s.id===sla_id);
