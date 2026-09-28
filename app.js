@@ -60,11 +60,10 @@ function init(){
   const rc0=document.getElementById('routerCountdown'); if(rc0) rc0.innerText='atualiza em 2:00'; }
 function tick(){ const el=document.getElementById('countdown'); countdownSec--;
   const re=document.getElementById('routerCountdown'); routerSec--;
-  if(countdownSec<=0||routerSec<=0){ countdownSec=120; routerSec=120;
-    if(el) el.innerText='atualiza em 2:00'; if(re) re.innerText='atualiza em 2:00';
-    carregar(); return; }
-  if(el) el.innerText='atualiza em '+Math.floor(countdownSec/60)+':'+String(countdownSec%60).padStart(2,'0');
-  if(re) re.innerText='atualiza em '+Math.floor(routerSec/60)+':'+String(routerSec%60).padStart(2,'0'); }
+  if(countdownSec<=0){ countdownSec=120; if(el) el.innerText='atualiza em 2:00'; carregar(); }
+  else if(el) el.innerText='atualiza em '+Math.floor(countdownSec/60)+':'+String(countdownSec%60).padStart(2,'0');
+  if(routerSec<=0){ routerSec=120; if(re) re.innerText='atualiza em 2:00'; carregarRouter(); }
+  else if(re) re.innerText='atualiza em '+Math.floor(routerSec/60)+':'+String(routerSec%60).padStart(2,'0'); }
 function startAuto(){ setInterval(tick,1000); }
 function setView(v){ view=v;
   document.getElementById('btnKanban').className='px-3 py-1 rounded text-sm '+(v==='kanban'?'bg-slate-900 text-white':'');
@@ -97,6 +96,13 @@ function renderResumo(){ const el=document.getElementById('analistasResumo'); if
     const dias=diasUteisMes(hoje.getFullYear(),hoje.getMonth(),a.id);
     const tag=a.status!=='ativo'?' (inativo)':(ausenteHoje(a.id)?' (ausente)':'');
     return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td>${h}</td><td>${m}</td><td>${(m/dias).toFixed(2)}</td></tr>`; }).join('')}</table>`; }
+
+async function carregarRouter(){ if(!sb) return;
+  const [c,p]=await Promise.all([
+    sb.from('chamados').select('*').order('data_abertura',{ascending:false}),
+    sb.from('chamado_pausas').select('*')]);
+  DB.chamados=c.data||[]; DB.pausas=p.data||[];
+  renderRouter(); }
 
 function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
   const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');
@@ -169,7 +175,7 @@ async function abrirChamado(){
   const sla=DB.slas.find(s=>s.id===sla_id);
   const venc=adicionarHorasUteis(dt,sla.prazo_horas);
   const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Atendimento',data_abertura:dt.toISOString(),data_vencimento:venc.toISOString(),priorizado:false});
-  msg.innerText=error?'Erro: '+error.message:'Aberto! Vencimento '+fmtDT(venc);
+  msg.innerText=error?'Erro: '+error.message:`Chamado ${numero} roteado para ${nomeAnalista(analista_id)}! Vencimento ${fmtDT(venc)}`;
   if(!error){ document.getElementById('n_numero').value=''; carregar(); } }
 
 async function fecharPausaUtil(chamado_id, agora){
