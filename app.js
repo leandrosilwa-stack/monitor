@@ -302,17 +302,19 @@ async function confirmarRedist(){ const dest=document.getElementById('redistDest
 function abrirModalImport(){ document.getElementById('importResult').innerHTML=''; document.getElementById('modalImport').classList.remove('hidden'); }
 function fecharModalImport(){ document.getElementById('modalImport').classList.add('hidden'); }
 function normTxt(s){ return (s||'').replace(/ /g,' ').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' '); }
-function parseCSVLine(line){ const out=[]; let cur='',q=false;
+function parseCSVLine(line,dl){ const d=dl||','; const out=[]; let cur='',q=false;
   for(let i=0;i<line.length;i++){ const ch=line[i];
     if(q){ if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; } else cur+=ch; }
-    else if(ch==='"') q=true; else if(ch===','){ out.push(cur); cur=''; } else cur+=ch; }
+    else if(ch==='"') q=true; else if(ch===d){ out.push(cur); cur=''; } else cur+=ch; }
   out.push(cur); return out.map(s=>s.trim()); }
+function detectDelim(line){ return line.split(';').length>line.split(',').length?';':','; }
 async function processarImport(){ const inp=document.getElementById('importFile'); const res=document.getElementById('importResult');
   if(!inp.files.length) return alert('Escolha o arquivo CSV.');
   const text=(await inp.files[0].text()).replace(/^\uFEFF/,'');
   const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
   if(lines.length<2){ res.innerText='Arquivo vazio.'; return; }
-  const hcols=parseCSVLine(lines[0]).map(normTxt);
+  const DL=detectDelim(lines[0]);
+  const hcols=parseCSVLine(lines[0],DL).map(normTxt);
   const HI=n=>hcols.indexOf(n);
   const iId=HI('id'), iAb=HI('abertura'), iPo=HI('posse'), iEn=HI('encerramento'), iAg=HI('aguardando'), iVe=HI('vencimento'), iDe=HI('descricao'), iPr=HI('proprietario');
   const modo=iEn>=0?'resolvido':(iAg>=0?'aguardando':(iPo>=0?'em_atendimento':'ag_atendimento'));
@@ -324,7 +326,7 @@ async function processarImport(){ const inp=document.getElementById('importFile'
   DB.analistas.forEach(a=>anaMap[normTxt(a.nome)]=a.id);
   const vistos=new Set(DB.chamados.map(c=>c.numero.toLowerCase()));
   const ok=[], rej=[], pausasPend=[];
-  for(let i=1;i<lines.length;i++){ const col=parseCSVLine(lines[i]);
+  for(let i=1;i<lines.length;i++){ const col=parseCSVLine(lines[i],DL);
     const get=x=>x>=0&&x<col.length?col[x]:'';
     const id=get(iId), ab=get(iAb), po=get(iPo), te=modo==='resolvido'?get(iEn):(modo==='aguardando'?get(iAg):''), ve=get(iVe), desc=get(iDe), prop=get(iPr);
     if(!id){ rej.push(`linha ${i+1}: sem ID`); continue; }
