@@ -138,10 +138,11 @@ function diasUteisMes(ano,mes,analistaId){
     if(!emAus) tot++; }
   return tot||1; }
 function isTesteNome(n){ return (n||'').trim().toUpperCase()==='TESTE'; }
+function isSaraNome(n){ return (n||'').trim().toUpperCase()==='SARA'; }
 function isTesteId(id){ const a=DB.analistas.find(x=>x.id===id); return a?isTesteNome(a.nome):false; }
 function ausenteHoje(analistaId){ const hoje=new Date(); hoje.setHours(12,0,0,0);
   return DB.ausencias.some(x=>x.analista_id===analistaId&&new Date(x.data_inicio+'T12:00:00')<=hoje&&hoje<=new Date(x.data_fim+'T12:00:00')); }
-function analistaDisponivel(a){ return a.status==='ativo'&&!isTesteNome(a.nome)&&!ausenteHoje(a.id); }
+function analistaDisponivel(a){ return a.status==='ativo'&&!isTesteNome(a.nome)&&!isSaraNome(a.nome)&&!ausenteHoje(a.id); }
 function rankingAnalistas(){
   const now=new Date(); const ativos=DB.analistas.filter(analistaDisponivel);
   const map=ativos.map(a=>{
@@ -153,8 +154,9 @@ function rankingAnalistas(){
 function fillForms(){
   document.getElementById('n_sla').innerHTML=DB.slas.map(s=>`<option value="${s.id}">${s.descricao} — ${s.prazo_horas}h</option>`).join('');
   const rank=rankingAnalistas();
+  const sara=DB.analistas.find(a=>isSaraNome(a.nome)&&a.status==='ativo');
   const teste=DB.analistas.find(a=>isTesteNome(a.nome)&&a.status==='ativo');
-  document.getElementById('n_analista').innerHTML=`<option value="">Automático (topo: ${rank[0]?rank[0].nome:'-'})</option>`+rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')+(teste?`<option value="${teste.id}">TESTE — só para apresentação</option>`:'');
+  document.getElementById('n_analista').innerHTML=`<option value="">Automático (topo: ${rank[0]?rank[0].nome:'-'})</option>`+rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')+(sara?`<option value="${sara.id}">${sara.nome} — manual</option>`:'')+(teste?`<option value="${teste.id}">TESTE — só para apresentação</option>`:'');
   document.getElementById('au_analista').innerHTML=DB.analistas.map(a=>`<option value="${a.id}">${a.nome}</option>`).join(''); }
 
 // ---------- CRUD chamados ----------
@@ -176,7 +178,8 @@ async function abrirChamado(){
   if(numeroExiste(numero)){ msg.innerText='Número já existe. Use outro número.'; return; }
   if(analista_id&&isTesteId(analista_id)){ if(!confirm('O chamado será cadastrado para o analista TESTE. Confirma? (só para apresentação)')) return; }
   else if(analista_id&&!vaga){ const an=DB.analistas.find(a=>a.id===analista_id);
-    if(!an||!analistaDisponivel(an)){ msg.innerText='Analista indisponível (inativo ou ausente). Escolha outro.'; return; } }
+    const saraOk=an&&isSaraNome(an.nome)&&an.status==='ativo'&&!ausenteHoje(an.id);
+    if(!an||(!analistaDisponivel(an)&&!saraOk)){ msg.innerText='Analista indisponível (inativo ou ausente). Escolha outro.'; return; } }
   if(vaga){ const {error}=await sb.from('chamados').insert({numero,sla_id,analista_id,status:'Aguardando Priorização',data_abertura:null,data_vencimento:null,priorizado:false,solicitar_devolucao:false});
     msg.innerText=error?'Erro: '+error.message:`Chamado ${numero} cadastrado em Aguardando Priorização para ${nomeAnalista(analista_id)}!`;
     if(!error){ document.getElementById('n_numero').value=''; carregar(); } return; }
@@ -289,7 +292,8 @@ function abrirRedistUm(id){ const c=DB.chamados.find(x=>x.id===id); if(!c) retur
   redistUmId=id;
   document.getElementById('modalTitle').innerText='Redistribuir #'+c.numero+' ('+nomeAnalista(c.analista_id)+' → ?)';
   const rank=rankingAnalistas();
-  document.getElementById('redistDestino').innerHTML=rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')||'<option value="">Sem analista disponível</option>';
+  const saraD=DB.analistas.find(a=>isSaraNome(a.nome)&&a.status==='ativo'&&!ausenteHoje(a.id));
+  document.getElementById('redistDestino').innerHTML=rank.map(a=>`<option value="${a.id}">${a.nome} — média ${a.media.toFixed(2)}</option>`).join('')+(saraD?`<option value="${saraD.id}">${saraD.nome} — manual</option>`:'')||'<option value="">Sem analista disponível</option>';
   document.getElementById('redistList').innerHTML=`<div class="border-b py-1">#${c.numero} — ${c.status} — venc ${fmtDT(c.data_vencimento)}</div><p class="text-xs text-slate-500 mt-2">Ordem de roteamento: menor média primeiro, empate alfabética. Só ativos e presentes.</p>`;
   document.getElementById('modalRedist').classList.remove('hidden'); }
 function fecharModal(){ document.getElementById('modalRedist').classList.add('hidden'); redistUmId=null; }
