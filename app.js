@@ -310,7 +310,10 @@ function parseCSVLine(line,dl){ const d=dl||','; const out=[]; let cur='',q=fals
 function detectDelim(line){ return line.split(';').length>line.split(',').length?';':','; }
 async function processarImport(){ const inp=document.getElementById('importFile'); const res=document.getElementById('importResult');
   if(!inp.files.length) return alert('Escolha o arquivo CSV.');
-  const text=(await inp.files[0].text()).replace(/^\uFEFF/,'');
+  const buf=await inp.files[0].arrayBuffer();
+  let text; try{ text=new TextDecoder('utf-8',{fatal:true}).decode(buf); }
+  catch(e){ text=new TextDecoder('windows-1252').decode(buf); }
+  text=text.replace(/^﻿/u,'');
   const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
   if(lines.length<2){ res.innerText='Arquivo vazio.'; return; }
   const DL=detectDelim(lines[0]);
