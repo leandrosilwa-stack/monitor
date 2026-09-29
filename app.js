@@ -1,4 +1,4 @@
-let sb=null, DB={analistas:[],slas:[],feriados:[],chamados:[],pausas:[],ausencias:[]};
+let sb=null, DB={analistas:[],slas:[],feriados:[],chamados:[],pausas:[],ausencias:[],dados:[]};
 let view='kanban';
 let countdownSec=120, routerSec=120, redistModo='todos';
 
@@ -48,11 +48,12 @@ function duracaoUtilSeg(ini,fim){
 
 // ---------- supabase (conexão fixa, sem localStorage) ----------
 function init(){
-  document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{ if(b.dataset.tab==='relatorios'&&!window._relOk){
-      const s=prompt('Senha de acesso aos Relatórios:');
+  document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{ if((b.dataset.tab==='relatorios'||b.dataset.tab==='tabelas')&&!window._relOk){
+      const s=prompt('Senha de acesso:');
       if(s!==window.SENHA_RELATORIOS){ alert('Senha incorreta.'); return; } window._relOk=true; }
     document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
-    document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden'); });
+    document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden');
+    if(b.dataset.tab==='tabelas') renderPessoal(); });
   document.getElementById('n_data').value=nowBR(); setView(view);
   if(!window.SUPABASE_URL||window.SUPABASE_URL.includes('COLE_AQUI')){ document.getElementById('tab-board').innerHTML='<div class="bg-white p-4 rounded shadow">Configure <b>config.js</b> com URL e anon key do Supabase e suba no GitHub.</div>'; return; }
   sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON); carregar(); startAuto();
@@ -78,15 +79,16 @@ function setView(v){ view=v;
   render(); }
 
 async function carregar(){ if(!sb) return;
-  const [a,s,f,c,p,au]=await Promise.all([
+  const [a,s,f,c,p,au,dd]=await Promise.all([
     sb.from('analistas').select('*').order('nome'),
     sb.from('slas').select('*').order('descricao'),
     sb.from('feriados').select('*').order('mes').order('dia'),
     sb.from('chamados').select('*').order('data_abertura',{ascending:false}),
     sb.from('chamado_pausas').select('*'),
-    sb.from('ausencias').select('*')]);
-  DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[]};
-  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); verificarNumero(); }
+    sb.from('ausencias').select('*'),
+    sb.from('analista_dados').select('*')]);
+  DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[],dados:dd.data||[]};
+  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); renderPessoal(); verificarNumero(); }
 
 async function carregarBoard(){ if(!sb) return;
   const [c,p]=await Promise.all([
@@ -396,6 +398,26 @@ async function editarFeriado(id){ const f=DB.feriados.find(x=>x.id===id); if(!f)
   if(error) return alert('Erro: '+error.message+' (já existe feriado nesse dia/mês?)'); carregar(); }
 async function addFeriado(){ const dia=+document.getElementById('f_dia').value,mes=+document.getElementById('f_mes').value,descricao=document.getElementById('f_desc').value.trim();
   if(!dia||!mes||!descricao) return; await sb.from('feriados').upsert({dia,mes,descricao},{onConflict:'dia,mes'}); carregar(); }
+// ---------- dados pessoais (idade / tempo de empresa) ----------
+function isoParaBR(iso){ if(!iso) return ''; const d=new Date(iso+'T12:00:00'); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)}`; }
+function idadeAnos(iso){ if(!iso) return '-'; const n=new Date(iso+'T12:00:00'), h=new Date();
+  let a=h.getFullYear()-n.getFullYear(); if(h.getMonth()<n.getMonth()||(h.getMonth()===n.getMonth()&&h.getDate()<n.getDate())) a--; return a+' anos'; }
+function tempoEmpresa(iso){ if(!iso) return '-'; const n=new Date(iso+'T12:00:00'), h=new Date();
+  let m=(h.getFullYear()-n.getFullYear())*12+(h.getMonth()-n.getMonth()); if(h.getDate()<n.getDate()) m--;
+  if(m<0) return '-'; const a=Math.floor(m/12), r=m%12;
+  return (a?`${a} ano${a>1?'s':''}`:'')+(a&&r?' e ':'')+(r?`${r} ${r>1?'meses':'mês'}`:'')||'menos de 1 mês'; }
+function renderPessoal(){ const el=document.getElementById('pessoalList'); if(!el) return;
+  const orden=[...DB.analistas].sort((a,b)=>(isTesteNome(a.nome)-isTesteNome(b.nome))||a.nome.localeCompare(b.nome));
+  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Nascimento (dd/mm/yy)</th><th>Idade</th><th>Admissão (dd/mm/yy)</th><th>Tempo de empresa</th><th></th></tr>${orden.map(a=>{
+    const d=(DB.dados||[]).find(x=>x.analista_id===a.id)||{};
+    const tag=a.status!=='ativo'?' (inativo)':'';
+    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td><input id="dn_${a.id}" value="${isoParaBR(d.data_nascimento)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td>${idadeAnos(d.data_nascimento)}</td><td><input id="da_${a.id}" value="${isoParaBR(d.data_admissao)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td>${tempoEmpresa(d.data_admissao)}</td><td><button onclick="salvarDados('${a.id}')" class="underline text-green-700">Salvar</button></td></tr>`; }).join('')}</table>`; }
+async function salvarDados(analista_id){ const ns=document.getElementById('dn_'+analista_id).value.trim(), as=document.getElementById('da_'+analista_id).value.trim();
+  let data_nascimento=null, data_admissao=null;
+  if(ns){ const d=parseAusBR(ns); if(!d) return alert('Nascimento inválido (dd/mm/yy).'); data_nascimento=d.toISOString().slice(0,10); }
+  if(as){ const d=parseAusBR(as); if(!d) return alert('Admissão inválida (dd/mm/yy).'); data_admissao=d.toISOString().slice(0,10); }
+  const {error}=await sb.from('analista_dados').upsert({analista_id,data_nascimento,data_admissao},{onConflict:'analista_id'});
+  if(error) return alert('Erro: '+error.message); carregar(); renderPessoal(); }
 function renderAdmin(){
   const orden=[...DB.analistas].sort((a,b)=> (isTesteNome(a.nome)-isTesteNome(b.nome)) || a.nome.localeCompare(b.nome));
   document.getElementById('analistasList').innerHTML=orden.map(a=>`<div class="flex flex-wrap justify-between gap-2 border-b py-1"><span>${a.nome} — ${a.status} — início ${a.inicio_expediente}h${isTesteNome(a.nome)?' (TESTE: fora dos indicadores)':''}</span><span class="flex gap-2"><button onclick="alterarInicio('${a.id}',${a.inicio_expediente})" class="underline text-green-700">Alterar 8h/9h</button><button onclick="toggleAnalista('${a.id}','${a.status}')" class="underline text-blue-700">${a.status==='ativo'?'Inativar':'Ativar'}</button></span></div>`).join('');

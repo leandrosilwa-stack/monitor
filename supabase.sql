@@ -31,10 +31,10 @@ create table if not exists chamados (
   analista_id uuid references analistas(id),
   priorizado boolean not null default false,
   status text not null default 'Aguardando Atendimento'
-    check (status in ('Aguardando Atendimento','Em atendimento','Aguardando Cliente','Resolvido')),
-  data_abertura timestamptz not null,
+    check (status in ('Aguardando Priorização','Aguardando Atendimento','Em atendimento','Aguardando Cliente','Resolvido')),
+  data_abertura timestamptz,
   data_posse timestamptz,
-  data_vencimento timestamptz not null,
+  data_vencimento timestamptz,
   data_resolvido timestamptz,
   solicitar_devolucao boolean not null default false,
   created_at timestamptz default now()
@@ -81,6 +81,22 @@ create policy "anon tudo" on ausencias for all to anon using (true) with check (
 
 -- 4) Migração devolução (para bancos já criados)
 alter table chamados add column if not exists solicitar_devolucao boolean not null default false;
+
+-- 5) Migração Aguardando vaga / Priorização (para bancos já criados)
+alter table chamados alter column data_abertura drop not null;
+alter table chamados alter column data_vencimento drop not null;
+alter table chamados drop constraint if exists chamados_status_check;
+alter table chamados add constraint chamados_status_check
+  check (status in ('Aguardando Priorização','Aguardando Atendimento','Em atendimento','Aguardando Cliente','Resolvido'));
+-- 6) Migração dados pessoais (para bancos já criados)
+create table if not exists analista_dados (
+  analista_id uuid primary key references analistas(id) on delete cascade,
+  data_nascimento date,
+  data_admissao date
+);
+alter table analista_dados enable row level security;
+drop policy if exists "anon tudo" on analista_dados;
+create policy "anon tudo" on analista_dados for all to anon using (true) with check (true);
 
 -- 3) Feriados nacionais fixos + 3 variáveis (editáveis pela tela)
 insert into feriados (dia, mes, descricao) values

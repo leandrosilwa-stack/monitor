@@ -23,7 +23,7 @@
       <button data-tab="dash" class="tabbtn bg-slate-700 px-3 py-1 rounded">Dashboard</button>
       <button data-tab="relatorios" class="tabbtn bg-slate-700 px-3 py-1 rounded">Relatórios 🔒</button>
       <button data-tab="analistas" class="tabbtn bg-slate-700 px-3 py-1 rounded">Analistas</button>
-      <button data-tab="tabelas" class="tabbtn bg-slate-700 px-3 py-1 rounded">SLA / Feriados</button>
+      <button data-tab="tabelas" class="tabbtn bg-slate-700 px-3 py-1 rounded">Administração 🔒</button>
     </nav>
   </div>
 </header>
@@ -185,6 +185,11 @@
         <button onclick="addFeriado()" class="bg-blue-600 text-white px-3 rounded">+</button>
       </div>
       <div id="ferList" class="text-sm"></div>
+    </div>
+    <div class="bg-white p-4 rounded shadow md:col-span-2">
+      <h3 class="font-bold mb-2">Analistas — dados pessoais</h3>
+      <p class="text-xs text-slate-500 mb-2">Datas em dd/mm/yy. Idade e tempo de empresa calculados ao abrir a tela. Excluir o analista remove a linha junto.</p>
+      <div id="pessoalList" class="text-sm overflow-auto"></div>
     </div>
   </section>
 </main>
