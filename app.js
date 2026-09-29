@@ -315,11 +315,11 @@ async function processarImport(){ const inp=document.getElementById('importFile'
   if(lines.length<2){ res.innerText='Arquivo vazio.'; return; }
   const DL=detectDelim(lines[0]);
   const hcols=parseCSVLine(lines[0],DL).map(normTxt);
-  const HI=n=>hcols.indexOf(n);
-  const iId=HI('id'), iAb=HI('abertura'), iPo=HI('posse'), iEn=HI('encerramento'), iAg=HI('aguardando'), iVe=HI('vencimento'), iDe=HI('descricao'), iPr=HI('proprietario');
-  const modo=iEn>=0?'resolvido':(iAg>=0?'aguardando':(iPo>=0?'em_atendimento':'ag_atendimento'));
-  const need={resolvido:[iId,iAb,iPo,iEn,iVe,iDe,iPr],aguardando:[iId,iAb,iPo,iAg,iVe,iDe,iPr],em_atendimento:[iId,iAb,iPo,iVe,iDe,iPr],ag_atendimento:[iId,iAb,iVe,iDe,iPr]}[modo];
-  if(need.some(x=>x<0)){ res.innerText='Cabeçalho incompleto para o formato detectado.'; return; }
+  const modo=hcols.includes('encerramento')?'resolvido':(hcols.includes('aguardando')?'aguardando':(hcols.includes('posse')?'em_atendimento':'ag_atendimento'));
+  const rotulos={id:'ID',abertura:'abertura',posse:'posse',encerramento:'encerramento',aguardando:'aguardando',vencimento:'vencimento',descricao:'Descrição',proprietario:'Proprietário'};
+  const chaves={resolvido:['id','abertura','posse','encerramento','vencimento','descricao','proprietario'],aguardando:['id','abertura','posse','aguardando','vencimento','descricao','proprietario'],em_atendimento:['id','abertura','posse','vencimento','descricao','proprietario'],ag_atendimento:['id','abertura','vencimento','descricao','proprietario']}[modo];
+  const idx={}; chaves.forEach(k=>idx[k]=hcols.indexOf(k));
+  if(Object.values(idx).some(x=>x<0)){ res.innerText='Cabeçalho incompleto. Lido: ['+hcols.join(' | ')+']. Faltando: '+chaves.filter(k=>idx[k]<0).map(k=>rotulos[k]).join(', ')+'.'; return; }
   const modoLbl={resolvido:'Resolvidos',aguardando:'Aguardando Cliente',em_atendimento:'Em atendimento',ag_atendimento:'Ag. Atendimento'}[modo];
   const slaMap={}, anaMap={};
   DB.slas.forEach(s=>slaMap[normTxt(s.descricao)]=s.id);
@@ -328,7 +328,7 @@ async function processarImport(){ const inp=document.getElementById('importFile'
   const ok=[], rej=[], pausasPend=[];
   for(let i=1;i<lines.length;i++){ const col=parseCSVLine(lines[i],DL);
     const get=x=>x>=0&&x<col.length?col[x]:'';
-    const id=get(iId), ab=get(iAb), po=get(iPo), te=modo==='resolvido'?get(iEn):(modo==='aguardando'?get(iAg):''), ve=get(iVe), desc=get(iDe), prop=get(iPr);
+    const id=get(idx.id), ab=get(idx.abertura), po=get(idx.posse), te=modo==='resolvido'?get(idx.encerramento):(modo==='aguardando'?get(idx.aguardando):''), ve=get(idx.vencimento), desc=get(idx.descricao), prop=get(idx.proprietario);
     if(!id){ rej.push(`linha ${i+1}: sem ID`); continue; }
     if(vistos.has(id.toLowerCase())){ rej.push(`${id}: ID duplicado`); continue; }
     const sla_id=slaMap[normTxt(desc)];
