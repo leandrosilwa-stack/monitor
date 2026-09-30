@@ -88,7 +88,7 @@ async function carregar(){ if(!sb) return;
     sb.from('ausencias').select('*'),
     sb.from('analista_dados').select('*')]);
   DB={analistas:a.data||[],slas:s.data||[],feriados:f.data||[],chamados:c.data||[],pausas:p.data||[],ausencias:au.data||[],dados:dd.data||[]};
-  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); renderPessoal(); verificarNumero(); }
+  fillForms(); fillFiltroAnalista(); render(); renderDash(); renderAdmin(); renderRouter(); renderAbertos(); renderResumo(); renderPessoal(); renderRel(); verificarNumero(); }
 
 async function carregarBoard(){ if(!sb) return;
   const [c,p]=await Promise.all([
@@ -362,6 +362,41 @@ async function processarImport(){ const inp=document.getElementById('importFile'
       if(e3){ res.innerHTML=`Chamados inseridos, mas falha nas pausas: ${e3.message}`; return; } } }
   res.innerHTML=`<div class="font-bold text-green-700 mb-2">${ins} importados (${modoLbl}), ${rej.length} rejeitados.</div>`+(rej.length?`<div class="max-h-60 overflow-auto">${rej.map(r=>`<div class="border-b py-0.5">${r}</div>`).join('')}</div>`:'');
   carregar(); }
+
+// ---------- relatórios ----------
+function diasUteisEquipe(ano,mes){ let t=0; const last=new Date(ano,mes+1,0).getDate();
+  for(let d=1;d<=last;d++) if(isDiaUtil(new Date(ano,mes,d))) t++; return t||1; }
+function fmtDur(seg){ seg=Math.round(seg); const h=Math.floor(seg/3600), m=Math.round(seg%3600/60); return h+'h '+String(m).padStart(2,'0')+'min'; }
+function pctTxt(a,b){ return b?(a/b*100).toFixed(1).replace('.',',')+'%':'-'; }
+function pausadoUtil(c){ return DB.pausas.filter(p=>p.chamado_id===c.id&&p.fim).reduce((s,p)=>s+(p.duracao_util_seg||duracaoUtilSeg(p.inicio,p.fim)),0); }
+function tRes(c){ if(c.status!=='Resolvido'||!c.data_resolvido||!c.data_abertura) return null; return Math.max(0,duracaoUtilSeg(c.data_abertura,c.data_resolvido)-pausadoUtil(c)); }
+function tAte(c){ if(c.status!=='Resolvido'||!c.data_resolvido||!c.data_posse) return null; return Math.max(0,duracaoUtilSeg(c.data_posse,c.data_resolvido)-pausadoUtil(c)); }
+function linhaRel(nome,base,dias,withMedia){ const res=base.filter(c=>c.status==='Resolvido');
+  const tr=res.map(tRes).filter(x=>x!==null), ta=res.map(tAte).filter(x=>x!==null);
+  const dentro=res.filter(c=>c.data_resolvido&&c.data_vencimento&&new Date(c.data_resolvido)<=new Date(c.data_vencimento)).length;
+  const rows=[[nome+' — recebidos',base.length],['Resolvidos',res.length+' ('+pctTxt(res.length,base.length)+')'],['Dentro do prazo',dentro+' ('+pctTxt(dentro,base.length)+')'],['Fora do prazo',(res.length-dentro)+' ('+pctTxt(res.length-dentro,base.length)+')'],['Tempo médio resolução',tr.length?fmtDur(tr.reduce((a,b)=>a+b,0)/tr.length):'-'],['Tempo médio atendimento',ta.length?fmtDur(ta.reduce((a,b)=>a+b,0)/ta.length):'-'],['Dias úteis trabalhados',dias]];
+  if(withMedia!==false) rows.push(['Média recebidos/dia',(base.length/dias).toFixed(2).replace('.',',')]);
+  return rows.map(r=>`<div class="flex justify-between border-b py-0.5"><span>${r[0]}</span><b>${r[1]}</b></div>`).join(''); }
+function renderRel(){ const mEl=document.getElementById('relMes'); if(!mEl||!sb) return;
+  if(!mEl.value){ const n=new Date(); mEl.value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
+  const [Y,M]=mEl.value.split('-').map(Number);
+  const sA=document.getElementById('relAnalista'), sS=document.getElementById('relSla');
+  const keepA=sA.value, keepS=sS.value;
+  const ordenA=[...DB.analistas].filter(a=>!isTesteNome(a.nome)).sort((a,b)=>a.nome.localeCompare(b.nome));
+  sA.innerHTML=ordenA.map(a=>`<option value="${a.id}">${a.nome}</option>`).join('');
+  if([...sA.options].some(o=>o.value===keepA)) sA.value=keepA;
+  sS.innerHTML='<option value="">Todos</option>'+DB.slas.map(s=>`<option value="${s.id}">${s.descricao}</option>`).join('');
+  if([...sS.options].some(o=>o.value===keepS)) sS.value=keepS;
+  const eq=chamadosEquipe().filter(c=>{ const d=new Date(c.data_abertura); return d.getFullYear()===Y&&d.getMonth()===M-1; });
+  document.getElementById('relEq').innerHTML=linhaRel('Recebidos no mês',eq,diasUteisEquipe(Y,M-1));
+  const carry=chamadosEquipe().filter(c=>c.status==='Resolvido'&&c.data_resolvido&&(()=>{ const r=new Date(c.data_resolvido), a=new Date(c.data_abertura); return r.getFullYear()===Y&&r.getMonth()===M-1&&(a.getFullYear()!==Y||a.getMonth()!==M-1); })());
+  document.getElementById('relEq').innerHTML+='<h4 class="font-bold mt-3 mb-1">Recebidos outro mês, resolvidos neste</h4>'+linhaRel('Carregados',carry,diasUteisEquipe(Y,M-1),false);
+  const an=DB.analistas.find(a=>a.id===sA.value)||ordenA[0];
+  const eqAn=eq.filter(c=>an&&c.analista_id===an.id);
+  document.getElementById('relAn').innerHTML=an?linhaRel(an.nome+' — recebidos',eqAn,diasUteisMes(Y,M-1,an.id)):'-';
+  const baseS=sS.value?eq.filter(c=>c.sla_id===sS.value):eq;
+  const slaN=sS.value?(DB.slas.find(s=>s.id===sS.value)||{}).descricao:'Todos SLAs';
+  document.getElementById('relSla').innerHTML=linhaRel(slaN+' — recebidos',baseS,diasUteisEquipe(Y,M-1)); }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }

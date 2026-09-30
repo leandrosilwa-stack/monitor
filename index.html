@@ -141,7 +141,16 @@
   <!-- RELATORIOS -->
   <section id="tab-relatorios" class="tab hidden bg-white p-4 rounded shadow">
     <h2 class="font-bold mb-2">Relatórios</h2>
-    <p class="text-sm text-slate-500">Área restrita. Defina quais relatórios precisa que eu implemento aqui.</p>
+    <div class="flex flex-wrap gap-2 mb-4 text-sm">
+      <label>Mês <input id="relMes" type="month" onchange="renderRel()" class="border p-1 rounded"></label>
+      <label>Analista <select id="relAnalista" onchange="renderRel()" class="border p-1 rounded"></select></label>
+      <label>SLA <select id="relSla" onchange="renderRel()" class="border p-1 rounded"></select></label>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-slate-50 p-3 rounded border"><h3 class="font-bold mb-2">Da equipe</h3><div id="relEq" class="text-sm"></div></div>
+      <div class="bg-slate-50 p-3 rounded border"><h3 class="font-bold mb-2">Do analista</h3><div id="relAn" class="text-sm"></div></div>
+      <div class="bg-slate-50 p-3 rounded border"><h3 class="font-bold mb-2">Do SLA</h3><div id="relSla" class="text-sm"></div></div>
+    </div>
     <div id="relContent" class="text-sm mt-2"></div>
   </section>
 
