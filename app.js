@@ -138,7 +138,7 @@ function diasUteisMes(ano,mes,analistaId){
     if(!emAus) tot++; }
   return tot||1; }
 function isTesteNome(n){ return (n||'').trim().toUpperCase()==='TESTE'; }
-function isSaraNome(n){ return (n||'').trim().toUpperCase()==='SARA'; }
+function isSaraNome(n){ return /^sara([.\s]|$)/.test(normTxt(n)); }
 function isTesteId(id){ const a=DB.analistas.find(x=>x.id===id); return a?isTesteNome(a.nome):false; }
 function ausenteHoje(analistaId){ const hoje=new Date(); hoje.setHours(12,0,0,0);
   return DB.ausencias.some(x=>x.analista_id===analistaId&&new Date(x.data_inicio+'T12:00:00')<=hoje&&hoje<=new Date(x.data_fim+'T12:00:00')); }
@@ -396,7 +396,7 @@ function renderRel(){ const mEl=document.getElementById('relMes'); if(!mEl||!sb)
   document.getElementById('relAn').innerHTML=an?linhaRel(an.nome+' — recebidos',eqAn,diasUteisMes(Y,M-1,an.id)):'-';
   const baseS=sS.value?eq.filter(c=>c.sla_id===sS.value):eq;
   const slaN=sS.value?(DB.slas.find(s=>s.id===sS.value)||{}).descricao:'Todos SLAs';
-  document.getElementById('relSla').innerHTML=linhaRel(slaN+' — recebidos',baseS,diasUteisEquipe(Y,M-1)); }
+  document.getElementById('relSlaBox').innerHTML=linhaRel(slaN+' — recebidos',baseS,diasUteisEquipe(Y,M-1)); }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }
