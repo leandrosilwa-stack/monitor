@@ -465,11 +465,14 @@ function tempoEmpresa(iso){ if(!iso) return '-'; const n=new Date(iso+'T12:00:00
   if(m<0) return '-'; const a=Math.floor(m/12), r=m%12;
   return (a?`${a} ano${a>1?'s':''}`:'')+(a&&r?' e ':'')+(r?`${r} ${r>1?'meses':'mês'}`:'')||'menos de 1 mês'; }
 function renderPessoal(){ const el=document.getElementById('pessoalList'); if(!el) return;
+  const hoje=new Date(), hd=hoje.getDate(), hm=hoje.getMonth();
+  const ehDia=iso=>{ if(!iso) return false; const d=new Date(iso+'T12:00:00'); return d.getDate()===hd&&d.getMonth()===hm; };
   const orden=[...DB.analistas].sort((a,b)=>(isTesteNome(a.nome)-isTesteNome(b.nome))||a.nome.localeCompare(b.nome));
   el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Nascimento (dd/mm/yy)</th><th>Idade</th><th>Admissão (dd/mm/yy)</th><th>Tempo de empresa</th><th></th></tr>${orden.map(a=>{
     const d=(DB.dados||[]).find(x=>x.analista_id===a.id)||{};
     const tag=a.status!=='ativo'?' (inativo)':'';
-    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td><input id="dn_${a.id}" value="${isoParaBR(d.data_nascimento)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td>${idadeAnos(d.data_nascimento)}</td><td><input id="da_${a.id}" value="${isoParaBR(d.data_admissao)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td>${tempoEmpresa(d.data_admissao)}</td><td><button onclick="salvarDados('${a.id}')" class="underline text-green-700">Salvar</button></td></tr>`; }).join('')}</table>`; }
+    const niv=ehDia(d.data_nascimento), adm=ehDia(d.data_admissao);
+    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td><input id="dn_${a.id}" value="${isoParaBR(d.data_nascimento)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td class="${niv?'bg-yellow-200 font-bold':''}">${niv?'🎂 ':''}${idadeAnos(d.data_nascimento)}</td><td><input id="da_${a.id}" value="${isoParaBR(d.data_admissao)}" placeholder="dd/mm/yy" class="border p-1 rounded w-28"></td><td class="${adm?'bg-yellow-200 font-bold':''}">${adm?'🎉 ':''}${tempoEmpresa(d.data_admissao)}</td><td><button onclick="salvarDados('${a.id}')" class="underline text-green-700">Salvar</button></td></tr>`; }).join('')}</table>`; }
 async function salvarDados(analista_id){ const ns=document.getElementById('dn_'+analista_id).value.trim(), as=document.getElementById('da_'+analista_id).value.trim();
   let data_nascimento=null, data_admissao=null;
   if(ns){ const d=parseAusBR(ns); if(!d) return alert('Nascimento inválido (dd/mm/yy).'); data_nascimento=d.toISOString().slice(0,10); }
