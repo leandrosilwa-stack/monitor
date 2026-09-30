@@ -406,7 +406,11 @@ function renderRel(){ const mEl=document.getElementById('relMes'); if(!mEl||!sb)
   const labels=Object.entries(porSlaEq).sort((a,b)=>b[1]-a[1]).map(([id,q])=>({l:(DB.slas.find(s=>s.id===id)||{descricao:'?'}).descricao,q}));
   const cv=document.getElementById('grafSla');
   if(cv&&window.Chart){ if(window._slaChart) window._slaChart.destroy();
-    window._slaChart=new Chart(cv,{type:'bar',data:{labels:labels.map(x=>x.l),datasets:[{data:labels.map(x=>x.q)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); } }
+    const quebra=t=>{ const words=String(t).split(' '), lines=[]; let cur='';
+      words.forEach(w=>{ if((cur+' '+w).trim().length>28){ lines.push(cur.trim()); cur=w; } else cur+=' '+w; });
+      if(cur.trim()) lines.push(cur.trim()); return lines.length?lines:[t]; };
+    cv.parentElement.style.height=Math.max(160,labels.length*48+40)+'px';
+    window._slaChart=new Chart(cv,{type:'bar',data:{labels:labels.map(x=>quebra(x.l)),datasets:[{data:labels.map(x=>x.q)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,layout:{padding:{left:8}},plugins:{legend:{display:false}},scales:{y:{ticks:{font:{size:11}}},x:{ticks:{precision:0}}}}}); } }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }
