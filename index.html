@@ -6,6 +6,7 @@
 <title>Roteador e Monitor de Chamados</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="config.js"></script>
 <style>
 .kanban-col{min-height:200px}
@@ -118,7 +119,13 @@
    <div id="modalImport" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
     <div class="bg-white rounded shadow max-w-3xl w-full m-4 p-4 max-h-[85vh] overflow-auto">
       <h3 class="font-bold mb-2">Importar CSV</h3>
-      <p class="text-xs text-slate-500 mb-2">Resolvidos: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário. Ag. Cliente: ID,abertura,posse,aguardando,vencimento,Descrição,Proprietário. Em atendimento: ID,abertura,posse,vencimento,Descrição,Proprietário. Ag. Atendimento: ID,abertura,vencimento,Descrição,Proprietário. Datas dd/mm/yy hh:mm:ss. O formato é detectado pelo cabeçalho. Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p>
+      <!-- <p class="text-xs text-slate-500 mb-2">Resolvidos: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário. Ag. Cliente: ID,abertura,posse,aguardando,vencimento,Descrição,Proprietário. Em atendimento: ID,abertura,posse,vencimento,Descrição,Proprietário. Ag. Atendimento: ID,abertura,vencimento,Descrição,Proprietário. Datas dd/mm/yy hh:mm:ss. O formato é detectado pelo cabeçalho. Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p> -->
+	  <p class="text-xs text-slate-500 mb-2">Resolvidos: ID,abertura,posse,encerramento,vencimento,Descrição,Proprietário.</p>
+	  <p class="text-xs text-slate-500 mb-2">Ag. Cliente: ID,abertura,posse,aguardando,vencimento,Descrição,Proprietário.</p> 
+	  <p class="text-xs text-slate-500 mb-2">Em atendimento: ID,abertura,posse,vencimento,Descrição,Proprietário.</p> 
+	  <p class="text-xs text-slate-500 mb-2">Ag. Atendimento: ID,abertura,vencimento,Descrição,Proprietário.</p> 
+	  <p class="text-xs text-slate-500 mb-2">Datas dd/mm/yy hh:mm:ss. O formato é detectado pelo cabeçalho.</p> 
+	  <p class="text-xs text-slate-500 mb-2">Linhas com SLA/analista inexistente ou ID duplicado são rejeitadas e listadas.</p>
       <div class="flex flex-wrap gap-2 mb-2">
         <input id="importFile" type="file" accept=".csv,.txt" class="border p-2 rounded text-sm">
         <button onclick="processarImport()" class="bg-blue-600 text-white px-4 py-2 rounded">Importar</button>
@@ -152,6 +159,10 @@
       <div class="bg-slate-50 p-3 rounded border"><h3 class="font-bold mb-2">Do SLA</h3><div id="relSlaBox" class="text-sm"></div></div>
     </div>
     <div id="relContent" class="text-sm mt-2"></div>
+    <div class="bg-white p-4 rounded shadow mt-4">
+      <h3 class="font-bold mb-2">Chamados por SLA no mês</h3>
+      <div class="h-64"><canvas id="grafSla"></canvas></div>
+    </div>
   </section>
 
   <!-- ANALISTAS -->

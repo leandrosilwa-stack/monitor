@@ -393,10 +393,20 @@ function renderRel(){ const mEl=document.getElementById('relMes'); if(!mEl||!sb)
   document.getElementById('relEq').innerHTML+='<h4 class="font-bold mt-3 mb-1">Recebidos outro mês, resolvidos neste</h4>'+linhaRel('Carregados',carry,diasUteisEquipe(Y,M-1),false);
   const an=DB.analistas.find(a=>a.id===sA.value)||ordenA[0];
   const eqAn=eq.filter(c=>an&&c.analista_id===an.id);
-  document.getElementById('relAn').innerHTML=an?linhaRel(an.nome+' — recebidos',eqAn,diasUteisMes(Y,M-1,an.id)):'-';
+  let htmlAn=an?linhaRel(an.nome,eqAn,diasUteisMes(Y,M-1,an.id)):'-';
+  if(an&&eqAn.length){ const porSla={}; eqAn.forEach(c=>porSla[c.sla_id]=(porSla[c.sla_id]||0)+1);
+    const top=Object.entries(porSla).sort((a,b)=>b[1]-a[1])[0];
+    const sTop=DB.slas.find(s=>s.id===top[0]);
+    htmlAn+=`<div class="flex justify-between border-b py-0.5"><span>SLA mais recebido</span><b>${sTop?sTop.descricao:'-'} (${top[1]})</b></div>`; }
+  document.getElementById('relAn').innerHTML=htmlAn;
   const baseS=sS.value?eq.filter(c=>c.sla_id===sS.value):eq;
   const slaN=sS.value?(DB.slas.find(s=>s.id===sS.value)||{}).descricao:'Todos SLAs';
-  document.getElementById('relSlaBox').innerHTML=linhaRel(slaN+' — recebidos',baseS,diasUteisEquipe(Y,M-1)); }
+  document.getElementById('relSlaBox').innerHTML=linhaRel(slaN,baseS,diasUteisEquipe(Y,M-1));
+  const porSlaEq={}; eq.forEach(c=>porSlaEq[c.sla_id]=(porSlaEq[c.sla_id]||0)+1);
+  const labels=Object.entries(porSlaEq).sort((a,b)=>b[1]-a[1]).map(([id,q])=>({l:(DB.slas.find(s=>s.id===id)||{descricao:'?'}).descricao,q}));
+  const cv=document.getElementById('grafSla');
+  if(cv&&window.Chart){ if(window._slaChart) window._slaChart.destroy();
+    window._slaChart=new Chart(cv,{type:'bar',data:{labels:labels.map(x=>x.l),datasets:[{data:labels.map(x=>x.q)}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); } }
 
 // ---------- dashboard / admin (TESTE excluído dos indicadores) ----------
 function chamadosEquipe(){ return DB.chamados.filter(c=>!isTesteId(c.analista_id)); }
