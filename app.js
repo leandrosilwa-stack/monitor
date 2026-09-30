@@ -105,7 +105,7 @@ function fillFiltroAnalista(){ const el=document.getElementById('filtroAnalista'
 function renderResumo(){ const el=document.getElementById('analistasResumo'); if(!el) return;
   const hoje=new Date(); const soDia=d=>d.getFullYear()===hoje.getFullYear()&&d.getMonth()===hoje.getMonth()&&d.getDate()===hoje.getDate();
   const orden=[...DB.analistas].sort((a,b)=>(isTesteNome(a.nome)-isTesteNome(b.nome))||a.nome.localeCompare(b.nome));
-  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Hoje</th><th>Mês</th><th>Média</th></tr>${orden.map(a=>{
+  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th class="text-center">Hoje</th><th class="text-center">Mês</th><th class="text-center">Média</th></tr>${orden.map(a=>{
     const rec=DB.chamados.filter(c=>c.analista_id===a.id);
     const h=rec.filter(c=>soDia(new Date(c.data_abertura))).length;
     const m=rec.filter(c=>{ const d=new Date(c.data_abertura); return d.getMonth()===hoje.getMonth()&&d.getFullYear()===hoje.getFullYear(); }).length;
