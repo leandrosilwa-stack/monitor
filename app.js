@@ -111,7 +111,7 @@ function renderResumo(){ const el=document.getElementById('analistasResumo'); if
     const m=rec.filter(c=>{ const d=new Date(c.data_abertura); return d.getMonth()===hoje.getMonth()&&d.getFullYear()===hoje.getFullYear(); }).length;
     const dias=diasUteisMes(hoje.getFullYear(),hoje.getMonth(),a.id);
     const tag=a.status!=='ativo'?' (inativo)':(ausenteHoje(a.id)?' (ausente)':'');
-    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td>${h}</td><td>${m}</td><td>${(m/dias).toFixed(2)}</td></tr>`; }).join('')}</table>`; }
+    return `<tr class="border-t"><td class="p-1">${a.nome}${tag}</td><td class="text-center">${h}</td><td class="text-center">${m}</td><td class="text-center">${(m/dias).toFixed(2)}</td></tr>`; }).join('')}</table>`; }
 
 function renderRouter(){ const el=document.getElementById('routerList'); if(!el) return;
   const arr=DB.chamados.filter(c=>c.solicitar_devolucao&&c.status==='Aguardando Cliente');
@@ -468,7 +468,7 @@ function renderPessoal(){ const el=document.getElementById('pessoalList'); if(!e
   const hoje=new Date(), hd=hoje.getDate(), hm=hoje.getMonth();
   const ehDia=iso=>{ if(!iso) return false; const d=new Date(iso+'T12:00:00'); return d.getDate()===hd&&d.getMonth()===hm; };
   const orden=[...DB.analistas].sort((a,b)=>(isTesteNome(a.nome)-isTesteNome(b.nome))||a.nome.localeCompare(b.nome));
-  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th>Nascimento (dd/mm/yy)</th><th>Idade</th><th>Admissão (dd/mm/yy)</th><th>Tempo de empresa</th><th></th></tr>${orden.map(a=>{
+  el.innerHTML=`<table class="w-full"><tr class="bg-slate-200"><th class="p-1 text-left">Analista</th><th class="text-center">Nascimento (dd/mm/yy)</th><th class="text-center">Idade</th><th class="text-center">Admissão (dd/mm/yy)</th><th class="text-center">Tempo de empresa</th><th></th></tr>${orden.map(a=>{
     const d=(DB.dados||[]).find(x=>x.analista_id===a.id)||{};
     const tag=a.status!=='ativo'?' (inativo)':'';
     const niv=ehDia(d.data_nascimento), adm=ehDia(d.data_admissao);
